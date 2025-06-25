@@ -1,0 +1,16 @@
+.send-voucher-payment {
+  background: #e31fa8 !important;
+  color: white;
+  border: none;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  font-size: 25px !important;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.send-voucher-payment:hover {
+  background: #a21a87 !important;
+}

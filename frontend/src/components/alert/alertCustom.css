@@ -1,0 +1,79 @@
+.alert-custom {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 15px;
+  border-radius: 6px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: flex-start;
+  z-index: 1000;
+  width: 390px;
+  font-size: 14px;
+  color: white;
+}
+
+.alert-success {
+  background-color: #28a745;
+  border-left: 5px solid rgba(255, 255, 255, 0.3);
+}
+
+.alert-error {
+  background-color: #dc3545;
+  border-left: 5px solid rgba(255, 255, 255, 0.3);
+}
+
+.alert-icon-container {
+  margin-right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: white;
+}
+
+.alert-content {
+  flex-grow: 1;
+}
+
+.alert-title {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: white;
+}
+
+.alert-message {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 16px;
+}
+
+.alert-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  width: 100%;
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.alert-progress::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0;
+  background-color: rgba(255, 255, 255, 0.7);
+  animation: progress 5s linear forwards;
+}
+
+@keyframes progress {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0;
+  }
+}

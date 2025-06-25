@@ -1,0 +1,259 @@
+
+.menu-icon {
+  font-size: 1.2rem;
+  margin-right: 15px;
+}
+
+.menu-text {
+  font-weight: 500;
+}
+
+.main-content {
+  flex-grow: 1;
+  padding: 20px;
+  margin-left: 240px;
+  overflow-y: auto;
+  background-color: var(--background-color);
+  transition: margin-left var(--transition);
+}
+
+.main-content.expanded {
+  margin-left: var(--sidebar-collapsed);
+}
+
+.dashboard-welcome {
+  margin-bottom: 20px;
+}
+
+.welcome-text h1 {
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.cards-setting {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.info-section {
+  background: #fff3e0;
+  border-radius: var(--radius-md);
+  padding: 20px;
+  box-shadow: var(--card-shadow);
+  display: flex;
+  align-items: flex-start;
+  margin-top: 30px;
+}
+
+.info-icon {
+  font-size: 24px;
+  color: #fb8c00;
+  margin-right: 15px;
+}
+
+.info-text {
+  white-space: pre-wrap;
+  font-size: 16px;
+  color: var(--text-color);
+  margin: 0;
+  line-height: 1.5;
+  font-family: 'Arial', sans-serif;
+}
+
+.settings-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  padding: 25px;
+  box-shadow: var(--card-shadow);
+  transition: transform 0.2s ease;
+  flex: 1;
+}
+
+.settings-card:hover {
+  transform: translateY(-3px);
+}
+
+.settings-card h3 {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-color);
+  margin-bottom: 10px;
+}
+
+.settings-card p {
+  font-size: 14px;
+  color: var(--text-light);
+  margin-bottom: 15px;
+}
+
+.input-group {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.cuota-input {
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  width: 220px;
+  font-size: 14px;
+  transition: border-color 0.3s ease;
+}
+
+.cuota-input:focus {
+  border-color: var(--primary-color);
+  outline: none;
+}
+
+.action-button {
+  padding: 12px 25px;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: var(--transition);
+}
+
+.save-button {
+  background: #e31fa8;
+  color: white;
+}
+
+.update-button {
+  background: #e31fa8;
+  color: white;
+}
+
+.action-button:hover {
+  transform: translateY(-2px);
+}
+
+.save-button:hover {
+  background: #a21a87;
+}
+
+.update-button:hover {
+  background: #a21a87;
+}
+
+.action-button:disabled {
+  background: var(--border-color);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+}
+
+.user-avatar {
+  font-size: 1.5rem;
+  color: var(--primary-color);
+  margin-right: 10px;
+}
+
+.user-name {
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.dropdown-icon {
+  font-size: 0.8rem;
+  margin-left: 5px;
+  transition: transform var(--transition);
+}
+
+.dropdown-icon.open {
+  transform: rotate(180deg);
+}
+
+.user-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
+  min-width: 200px;
+  padding: 10px 0;
+  display: none;
+}
+
+.user-profile:hover .user-dropdown {
+  display: block;
+}
+
+.dropdown-item {
+  padding: 10px 20px;
+  color: var(--text-color);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dropdown-item:hover {
+  background-color: var(--background-alt);
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 5px 0;
+}
+
+.logout {
+  color: var(--danger-color) !important;
+}
+
+/* Estilos para el mensaje de carga */
+.loading-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  min-height: 300px; /* Altura mínima para abarcar el área principal */
+  width: 100%;
+  font-size: 16px;
+  color: #666;
+  text-align: center;
+  padding: 20px;
+}
+
+@media (max-width: 576px) {
+  .sidebar {
+    display: none;
+  }
+
+  .main-content {
+    margin-left: 0;
+    padding: 10px;
+  }
+
+  .welcome-text h1 {
+    font-size: 1.4rem;
+  }
+
+  .cards-setting {
+    flex-direction: column;
+  }
+
+  .info-section {
+    margin-bottom: 30px;
+  }
+
+  .cuota-input {
+    width: 100%;
+  }
+
+  .action-button {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+  }
+}

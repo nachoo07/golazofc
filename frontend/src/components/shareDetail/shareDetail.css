@@ -1,0 +1,240 @@
+
+.search-section {
+  display: none;
+}
+
+.search-container {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+  margin: 10px auto;
+}
+
+.add-btn,
+.back-btn {
+  background: #e31fa8;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: var(--transition);
+  margin-left: 10px;
+}
+
+.add-btn:hover,
+.back-btn:hover {
+  background: #a21a87;
+}
+
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  align-items: center;
+}
+
+.no-data-row {
+  text-align: center;
+  padding: 30px !important;
+  font-size: 1rem;
+  color: #6c757d;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+.action-btn-share-detail {
+  background: #e31fa8 !important;
+  color: white;
+  border: none;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  font-size: 25px !important;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-btn-share-detail:hover {
+  background: #a21a87;
+}
+
+.error-text {
+  color: var(--danger-color);
+  font-size: 12px;
+}
+
+.send-voucher {
+  background: #e31fa8 !important;
+  color: white;
+  border: none;
+  padding: 6px !important;
+  border-radius: var(--radius-sm) !important;
+  font-size: 25px !important;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 !important;
+}
+
+.btn-icon {
+  margin: 0 !important;
+}
+
+.checkbox-filters {
+  display: flex;
+  gap: 10px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.checkbox-custom-share {
+  padding: 5px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+  cursor: pointer;
+}
+
+.checkbox-label input:checked + .checkbox-custom-share {
+  background: #e31fa8;
+  color: white;
+}
+
+.cuotas-table-section {
+  margin-top: 20px;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.cuotas-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
+}
+
+.cuotas-table th,
+.cuotas-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.cuotas-table th {
+  background: var(--background-alt);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.cuotas-table tbody tr:hover {
+  background: var(--background-alt);
+}
+
+.filter-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+/* Estilo para el botón deshabilitado */
+.action-btn.send-voucher.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+/* Estilo para el spinner */
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* Estilos para el mensaje de carga */
+.loading-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  min-height: 300px;
+  width: 100%;
+  font-size: 16px;
+  color: #666;
+  text-align: center;
+  padding: 20px;
+}
+
+/* Animación de rotación para el spinner */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 576px) {
+  .dashboard-container .sidebar {
+    display: none;
+  }
+
+  .content-container {
+    margin-left: 0px !important;
+    margin-top: 55px !important;
+  }
+
+  .cuotas-table th,
+  .cuotas-table td {
+    font-size: 10px;
+    padding: 6px;
+  }
+
+  .back-btn {
+    font-size: 12px !important;
+    margin: 0 !important;
+  }
+
+  .send-voucher {
+  font-size: 20px !important;
+    padding: 4px !important;
+  }
+
+  .btn-icon {
+    font-size: 16px !important;
+    margin: 0 !important;
+  }
+
+  .no-data-row {
+    padding: 20px 15px !important;
+    font-size: 0.9rem;
+  }
+
+  .search-section {
+    display: none;
+  }
+
+  .action-btn-share-detail{
+    font-size: 20px !important;
+    padding: 4px !important;
+  }
+
+}
+
+@media (min-width: 577px) {
+  .search-section {
+    display: block;
+  }
+}

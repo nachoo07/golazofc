@@ -1,0 +1,29 @@
+.modal-header-motion {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    padding: 10px !important;
+    background-color: #e31fa8 !important;
+    border-bottom: 1px solid #ccc !important;
+}
+
+.modal-title-motion {
+    color: white !important;
+    font-size: 24px !important;
+    font-weight: bold !important;
+    text-align: center !important;
+    width: 100% !important;
+}
+
+.modal-body-motion {
+    padding: 20px !important;
+    background-color: #f9f9f9 !important;
+}
+
+.modal-footer-motion {
+    display: flex !important;
+    justify-content: center !important;
+    padding: 10px !important;
+    background: #f1f1f1 !important;
+    margin-top: 0px !important;
+}
