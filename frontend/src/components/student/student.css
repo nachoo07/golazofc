@@ -1,0 +1,392 @@
+.checkbox-filters {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.checkbox-custom {
+  display: inline-block;
+  position: relative;
+  padding-left: 30px;
+  margin-bottom: 0;
+  font-size: 18px !important;
+  color: var(--text-color);
+  user-select: none;
+  transition: var(--transition);
+}
+
+.checkbox-custom::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  border: 2px solid #e31fa8 !important;
+  border-radius: var(--radius-sm);
+  background-color: var(--card-bg);
+  transition: var(--transition);
+}
+
+.checkbox-custom::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%) scale(0);
+  width: 6px;
+  height: 10px;
+  border-right: 2px solid white;
+  border-bottom: 2px solid white;
+  transform-origin: center;
+  transition: var(--transition);
+  opacity: 0;
+}
+
+.checkbox-label input {
+  display: none;
+}
+
+.checkbox-label input:checked+.checkbox-custom::after {
+  transform: translateY(-50%) rotate(45deg) scale(1);
+  opacity: 1;
+}
+
+.checkbox-label input:checked+.checkbox-custom::before {
+  background-color: #e31fa8 !important;
+}
+
+.students-filter {
+  margin-bottom: 20px;
+}
+
+.filter-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  margin: 0px 10px;
+}
+
+.add-btn {
+  background: #e31fa8 !important;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: var(--transition);
+}
+
+.add-btn:hover {
+  background: #a21a87 !important;
+}
+
+.students-table-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.table-wrapper {
+  flex: 1;
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
+  background: var(--card-bg);
+}
+
+.students-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.students-table th,
+.students-table td {
+  padding: 12px 15px;
+  text-align: center;
+  font-size: 18px;
+  color: var(--text-color);
+}
+
+.students-table th {
+  background: #e31fa8;
+  color: white;
+  font-weight: 600;
+}
+
+.students-table tr {
+  border-bottom: 1px solid var(--border-color);
+  transition: var(--transition);
+}
+
+.students-table tbody tr:hover {
+  background: var(--background-alt);
+}
+
+.students-table .state-activo {
+  color: var(--success-color);
+}
+
+.students-table .state-inactivo {
+  color: var(--danger-color);
+}
+
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.action-btn-student {
+  background: #e31fa8 !important;
+  color: white;
+  border: none;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  font-size: 25px !important;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-btn-student:hover {
+  background: #a21a87 !important;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.pagination-btn {
+  background: var(--background-alt);
+  color: var(--text-color);
+  border: none;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  transition: var(--transition);
+  margin-top: 20px;
+}
+
+.pagination-btn:hover {
+  background: #a21a87 !important;
+  color: white !important;
+}
+
+.pagination-btn.active {
+  background: #e31fa8 !important;
+  color: white;
+}
+
+.pagination-btn:disabled {
+  background: var(--border-color);
+  color: var(--text-light);
+  cursor: not-allowed;
+}
+
+.mobile-search-section {
+  display: none;
+  margin: 10px 0;
+  width: 100%;
+}
+
+.mobile-search-container {
+  position: relative;
+  width: 100%;
+}
+
+.mobile-search-icon {
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-light);
+  font-size: 0.9rem;
+}
+
+.mobile-search-input {
+  width: 100%;
+  padding: 12px 40px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background-color: white;
+  color: var(--text-color);
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.mobile-search-input:focus {
+  outline: none;
+  border-color: #a21a87 !important;
+  box-shadow: 0 0 0 2px rgba(244, 44, 140, 0.1);
+}
+
+.mobile-search-clear {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-light);
+  font-size: 0.8rem;
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.mobile-search-clear:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.import-btn {
+  background: #e31fa8 !important;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: var(--transition);
+}
+
+.import-btn:hover {
+  background-color: #a21a87 !important;
+}
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.loading-spinner {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.loading-spinner p {
+  margin-top: 10px;
+}
+
+.btn-student {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  max-width: 450px;
+  justify-content: space-between;
+
+}
+
+@media (max-width: 576px) {
+
+  .students-table th,
+  .students-table td {
+    font-size: 13px;
+    padding: 6px;
+  }
+
+  .action-btn-student {
+    padding: 3px;
+    font-size: 18px !important;
+  }
+
+  .pagination-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .checkbox-filters {
+    display: flex;
+    flex-direction: row !important;
+  }
+
+  .filter-actions {
+    display: flex;
+    flex-direction: row !important;
+    margin-top: 10px !important;
+  }
+
+  .add-btn {
+    font-size: 12px !important;
+    margin-left: 0px !important;
+  }
+
+  .import-btn {
+    font-size: 12px !important;
+  }
+
+  .checkbox-custom {
+    padding-left: 25px !important;
+  }
+
+  .mobile-search-section {
+    display: block;
+    /* Mostrar solo en pantallas móviles */
+  }
+
+  .header-actions .search-container {
+    display: none;
+  }
+
+  .dashboard-welcome {
+    margin-bottom: 10px;
+  }
+
+  .students-filter {
+    margin-top: 10px;
+  }
+
+  .welcome-text h1 {
+    font-size: 1.4rem;
+  }
+
+  .action-buttons {
+    display: flex;
+    flex-direction: row !important;
+  }
+
+  .search-box {
+    display: none;
+  }
+
+  .club{
+    display: none;
+  }
+
+  .btn-student {
+    
+    justify-content: space-around;
+  }
+}

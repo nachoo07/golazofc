@@ -1,0 +1,154 @@
+/* Estilos para el perfil */
+.profile-container {
+  position: relative;
+}
+
+.profile-container-inner {
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: var(--radius-md, 8px);
+  transition: background-color 0.3s ease;
+  display: flex;
+  align-items: center;
+}
+
+.profile-icon {
+  font-size: 25px;
+  color: #000000;
+  margin-right: 10px;
+}
+
+.profile-greeting {
+  font-size: 20px;
+  margin-right: 5px;
+  color: #000000;
+}
+
+.arrow-icon {
+  margin-left: 8px;
+  font-size: 0.8rem;
+  color: #000000;
+  transition: transform 0.3s ease;
+}
+
+.arrow-icon.rotated {
+  transform: rotate(180deg);
+}
+
+.profile-menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  background-color: white;
+  border-radius: var(--radius-md, 8px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  min-width: 200px;
+  z-index: 1100;
+  overflow: hidden;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.menu-option {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  color: #333333;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.menu-option:hover {
+  background-color: #f0f2f5;
+  color: #e31fa8;
+}
+
+.option-icon {
+  margin-right: 10px;
+  font-size: 1rem;
+  color: #6c757d;
+}
+
+.menu-separator {
+  height: 1px;
+  background-color: #e9ecef;
+  margin: 4px 0;
+}
+
+.logout-option {
+  color: #dc3545;
+}
+
+.logout-option:hover {
+  background-color: #dc3545;
+  color: #ffffff;
+}
+
+.menu-icon {
+  font-size: 1.2rem;
+  margin-right: 15px;
+}
+
+.menu-text {
+  font-weight: 500;
+  color: white;
+}
+
+.app-navbar {
+  background-color: #e31fa8; /* Color de fondo sólido */
+  z-index: 1000; /* Asegura que esté encima */
+}
+.content-container {
+  padding-top: 56px; /* Ajusta según la altura del Navbar */
+}
+/* Responsive adjustments para móviles */
+@media (max-width: 576px) {
+  .navbar-collapse {
+    background-color: #30343b;
+    padding: 10px;
+    margin: 0;
+  }
+
+  .sidebar-menu-item {
+    display: flex !important;
+    padding: 8px 10px;
+    margin: 0px 0;
+    color: white;
+  }
+
+  .sidebar-menu-item .menu-text {
+    display: inline !important;
+  }
+
+  .profile-container-inner {
+    padding: 5px 10px;
+  }
+
+  .profile-icon {
+    margin-right: 8px;
+  }
+
+  .navbar-collapse.show {
+    display: block !important; /* Asegurar que el menú colapsable se muestre */
+  }
+
+  .opciones {
+    display: flex;
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+
+ 
+}
+
