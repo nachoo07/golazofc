@@ -250,7 +250,7 @@ const generateReport = () => {
     return hasCategory;
   });
 
-
+  //mensaje de prueba 
   // Obtener fechas únicas y ordenarlas cronológicamente
   const attendanceDates = [
     ...new Set(
