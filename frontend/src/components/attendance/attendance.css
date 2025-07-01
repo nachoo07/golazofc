@@ -256,10 +256,7 @@
   padding: 10px;
 }
 
-.modal-content{
-  height: 450px !important;
-  width: 500px !important;
-}
+
 
 .report-date-selection {
   display: flex;
