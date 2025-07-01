@@ -34,7 +34,7 @@ const EmailNotification = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [globalSearchTerm, setGlobalSearchTerm] = useState("");
-  const [activeButton, setActiveButton] = useState(null); // Nuevo estado para botón activo
+  const [activeButton, setActiveButton] = useState(null);
 
   const monthNames = [
     "Enero",
@@ -131,11 +131,11 @@ const EmailNotification = () => {
   };
 
   useEffect(() => {
+    const searchNormalized = searchTerm
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
     const filtered = estudiantes.filter((student) => {
-      const searchNormalized = globalSearchTerm
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
       const nameNormalized = student.name
         .toLowerCase()
         .normalize("NFD")
@@ -145,10 +145,19 @@ const EmailNotification = () => {
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "");
       const fullName = `${nameNormalized} ${lastNameNormalized}`;
-      return fullName.includes(searchNormalized);
-    }).filter((student) => !selectedStudents.some((s) => s._id === student._id));
+      const dniNormalized = student.dni
+        ? student.dni.toString().toLowerCase()
+        : "";
+
+      return (
+        fullName.startsWith(searchNormalized) ||
+        nameNormalized.startsWith(searchNormalized) ||
+        lastNameNormalized.startsWith(searchNormalized) ||
+        dniNormalized.startsWith(searchNormalized)
+      ) && !selectedStudents.some((s) => s._id === student._id);
+    });
     setFilteredStudents(filtered);
-  }, [globalSearchTerm, estudiantes, selectedStudents]);
+  }, [searchTerm, estudiantes, selectedStudents]);
 
   const handleSelectStudent = (student) => {
     if (student.state === "Inactivo") {
@@ -162,7 +171,7 @@ const EmailNotification = () => {
     setSelectedStudents([...selectedStudents, student]);
     setSearchTerm("");
     setIsOverdueMode(false);
-    setActiveButton(null); // Desactivar botones al seleccionar manualmente
+    setActiveButton(null);
   };
 
   const handleRemoveStudent = (studentId) => {
@@ -183,7 +192,7 @@ const EmailNotification = () => {
     setIsOverdueMode(false);
     setSubject("");
     setDisplayMessage("");
-    setActiveButton("selectAll"); // Marcar "Todos Activos" como activo
+    setActiveButton("selectAll");
   };
 
   const generateOverdueMessages = (students) => {
@@ -282,7 +291,7 @@ const EmailNotification = () => {
     setSearchTerm("");
     setIsOverdueMode(true);
     generateOverdueMessages(studentsWithOverdue);
-    setActiveButton("selectOverdue"); // Marcar "Cuotas Vencidas" como activo
+    setActiveButton("selectOverdue");
   };
 
   const handleCancel = () => {
@@ -292,7 +301,7 @@ const EmailNotification = () => {
     setSearchTerm("");
     setGlobalSearchTerm("");
     setIsOverdueMode(false);
-    setActiveButton(null); // Restablecer botones al cancelar
+    setActiveButton(null);
   };
 
   const handleClearEmail = () => {
@@ -309,11 +318,11 @@ const EmailNotification = () => {
     const emails = isOverdueMode
       ? generateOverdueMessages(selectedStudents)
       : [
-        {
-          recipient: selectedStudents.map((s) => s.mail).join(","),
-          subject,
-          message: displayMessage || "Mensaje no especificado",
-        },
+          {
+            recipient: selectedStudents.map((s) => s.mail).join(","),
+            subject,
+            message: displayMessage || "Mensaje no especificado",
+          },
       ];
 
     if (emails.length === 0) {
@@ -353,14 +362,6 @@ const EmailNotification = () => {
     setIsMenuOpen(false);
   };
 
-  if (dataLoading) {
-    return (
-      <div className="app-container">
-        <div className="loading">Cargando datos...</div>
-      </div>
-    );
-  }
-
   return (
     <div className={`app-container ${windowWidth <= 576 ? "mobile-view" : ""}`}>
       {windowWidth <= 576 && (
@@ -371,22 +372,7 @@ const EmailNotification = () => {
           <div className="header-logo" onClick={() => navigate('/')}>
             <img src={logo} alt="Valladares Fútbol" className="logo-image" />
           </div>
-          <div className="search-box">
-            <FaSearch className="search-symbol" />
-            <input
-              type="text"
-              placeholder="Buscar estudiantes..."
-              className="search-field"
-              value={globalSearchTerm}
-              onChange={(e) => setGlobalSearchTerm(e.target.value)}
-              disabled={dataLoading || loading} // Deshabilitar búsqueda durante carga
-            />
-            {globalSearchTerm && (
-              <button className="search-clear-btn" onClick={() => setGlobalSearchTerm("")}>
-                <FaTimesClear />
-              </button>
-            )}
-          </div>
+        
           <div className="nav-right-section">
             <div
               className="profile-container"
@@ -457,48 +443,47 @@ const EmailNotification = () => {
           </nav>
         </aside>
         <main className={`main-content ${!isMenuOpen ? "expanded" : ""}`}>
-          <section className="dashboard-welcome">
-            <div className="welcome-text">
-              <h1>Enviar Correos</h1>
+          <section className="dashboard-header">
+           
+            <div className="search-wrapper">
+              <div className="search-container">
+                <FaSearch className="search-icon" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="search-input"
+                  disabled={loading || dataLoading}
+                  placeholder="Buscar estudiante..."
+                />
+                {searchTerm && (
+                  <button className="search-clear" onClick={() => setSearchTerm("")}>
+                    <FaTimesClear />
+                  </button>
+                )}
+              </div>
+              {searchTerm && (
+                <div className="student-dropdown">
+                  {dataLoading ? (
+                    <div className="student-option">Cargando estudiantes...</div>
+                  ) : filteredStudents.length ? (
+                    filteredStudents.map((student) => (
+                      <div
+                        key={student._id}
+                        className="student-option"
+                        onClick={() => handleSelectStudent(student)}
+                      >
+                        {student.name} {student.lastName} (DNI: {student.dni})
+                      </div>
+                    ))
+                  ) : (
+                    <div className="student-option">No hay coincidencias</div>
+                  )}
+                </div>
+              )}
             </div>
           </section>
           <section className="student-selection">
-            <div className="search-container">
-              <FaSearch className="search-icon" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="search-input"
-                disabled={loading || dataLoading} // Deshabilitar búsqueda durante carga
-                placeholder="Buscar estudiante..."
-              />
-              {searchTerm && (
-                <button className="search-clear" onClick={() => setSearchTerm("")}>
-                  <FaTimesClear />
-                </button>
-              )}
-            </div>
-            {searchTerm && (
-              <div className="student-dropdown">
-                {dataLoading ? (
-                  <div className="student-option">Cargando estudiantes...</div>
-                ) : filteredStudents.length ? (
-                  filteredStudents.map((student) => (
-                    <div
-                      key={student._id}
-                      className="student-option"
-                      onClick={() => handleSelectStudent(student)}
-                    >
-                      {student.name} {student.lastName} ({student.mail || "Sin correo"}){" "}
-                      {student.state === "Inactivo" && "[Inactivo]"}
-                    </div>
-                  ))
-                ) : (
-                  <div className="student-option">No hay coincidencias</div>
-                )}
-              </div>
-            )}
             <div className="selected-students">
               {selectedStudents.slice(0, 10).map((student) => (
                 <div key={student._id} className="selected-student">
@@ -519,21 +504,21 @@ const EmailNotification = () => {
               <button
                 className={`quick-action-btn email select-all-btn ${activeButton === "selectAll" ? "active" : ""}`}
                 onClick={handleSelectAll}
-                disabled={loading || dataLoading} // Deshabilitar botón durante carga
+                disabled={loading || dataLoading}
               >
                 Todos Activos
               </button>
               <button
                 className={`quick-action-btn email select-overdue-btn ${activeButton === "selectOverdue" ? "active" : ""}`}
                 onClick={handleSelectOverdue}
-                disabled={loading || dataLoading} // Deshabilitar botón durante carga
+                disabled={loading || dataLoading}
               >
                 Cuotas Vencidas
               </button>
               <button
                 className="quick-action-btn email"
                 onClick={handleCancel}
-                disabled={loading || dataLoading} // Deshabilitar botón durante carga
+                disabled={loading || dataLoading}
               >
                 Cancelar
               </button>
@@ -546,28 +531,28 @@ const EmailNotification = () => {
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               className="email-subject"
-              disabled={loading || isOverdueMode || dataLoading} // Deshabilitar durante carga
+              disabled={loading || isOverdueMode || dataLoading}
               placeholder="Asunto..."
             />
             <textarea
               value={displayMessage}
               onChange={(e) => setDisplayMessage(e.target.value)}
               className="email-message"
-              disabled={loading || isOverdueMode || dataLoading} // Deshabilitar durante carga
+              disabled={loading || isOverdueMode || dataLoading}
               placeholder="Mensaje..."
             />
             <div className="email-actions">
               <button
                 className="quick-action-btn cancel-btn"
                 onClick={handleClearEmail}
-                disabled={loading || isOverdueMode || dataLoading} // Deshabilitar durante carga
+                disabled={loading || isOverdueMode || dataLoading}
               >
                 Borrar
               </button>
               <button
                 className="quick-action-btn"
                 onClick={handleSendToAll}
-                disabled={loading || dataLoading} // Deshabilitar botón durante carga
+                disabled={loading || dataLoading}
               >
                 {loading ? "Enviando..." : `Enviar a ${selectedStudents.length} Seleccionado(s)`}
               </button>

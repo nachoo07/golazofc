@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AttendanceContext } from '../../context/attendance/AttendanceContext';
 import { StudentsContext } from '../../context/student/StudentContext';
 import { LoginContext } from '../../context/login/LoginContext';
+import Swal from 'sweetalert2';
 import {
   FaBars, FaUsers, FaMoneyBill, FaChartBar, FaExchangeAlt, FaList,
   FaCalendarCheck, FaUserCog, FaCog, FaEnvelope, FaHome,
@@ -10,27 +11,31 @@ import {
   FaFileExport
 } from 'react-icons/fa';
 import DatePicker from 'react-datepicker';
-import { format, isValid, eachDayOfInterval, startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns';
+import { format, isValid, startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns';
 import { Modal, Button, Form } from 'react-bootstrap';
 import 'react-datepicker/dist/react-datepicker.css';
 import './attendance.css';
 import AppNavbar from '../navbar/AppNavbar';
 import logo from '../../assets/logo.png';
 import * as XLSX from 'xlsx';
-import jsPDF from 'jsPDF';
+import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { es } from 'date-fns/locale';
 
 const Attendance = () => {
+  // Inicializar fechas como objetos Date en la zona horaria local
+  const getLocalDate = (date = new Date()) => new Date(date); // Mantener la fecha y hora actuales
+
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [attendance, setAttendance] = useState({});
+  const [previousAttendance, setPreviousAttendance] = useState({});
   const [isAttendanceSaved, setIsAttendanceSaved] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [reportStartDate, setReportStartDate] = useState(startOfMonth(new Date()));
-  const [reportEndDate, setReportEndDate] = useState(endOfMonth(new Date()));
+  const [reportStartDate, setReportStartDate] = useState(getLocalDate(startOfMonth(new Date())));
+  const [reportEndDate, setReportEndDate] = useState(getLocalDate(endOfMonth(new Date())));
   const [reportFormat, setReportFormat] = useState('excel');
   const [reportError, setReportError] = useState(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -44,7 +49,6 @@ const Attendance = () => {
   const { auth, logout, userData } = useContext(LoginContext);
   const { agregarAsistencia, actualizarAsistencia, ObtenerAsistencia, asistencias } = useContext(AttendanceContext);
 
-  // Categorías fijas desde 2007 hasta 2020
   const categories = Array.from({ length: 2020 - 2007 + 1 }, (_, i) => String(2007 + i));
 
   const menuItems = [
@@ -113,7 +117,7 @@ const Attendance = () => {
 
   useEffect(() => {
     if (selectedCategory && selectedDate) {
-      const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+      const formattedDate = format(selectedDate, 'yyyy-MM-dd'); // Usar fecha local sin hora
       const asistenciaExistente = asistencias.find(asistencia => {
         const asistenciaDate = new Date(asistencia.date);
         const formattedAsistenciaDate = isValid(asistenciaDate) ? format(asistenciaDate, 'yyyy-MM-dd') : null;
@@ -133,7 +137,12 @@ const Attendance = () => {
         setIsAttendanceSaved(true);
         setIsEditing(false);
       } else {
-        setAttendance({});
+        const newAttendance = {};
+        const studentsInCategory = estudiantes.filter(student => student.category === selectedCategory);
+        studentsInCategory.forEach(student => {
+          newAttendance[student._id] = null;
+        });
+        setAttendance(newAttendance);
         setIsAttendanceSaved(false);
         setIsEditing(false);
       }
@@ -141,67 +150,148 @@ const Attendance = () => {
   }, [selectedCategory, selectedDate, asistencias, estudiantes]);
 
   const handleAttendanceChange = (studentId, status) => {
-    setAttendance(prevState => ({
-      ...prevState,
-      [studentId]: status
-    }));
+    setAttendance(prevState => {
+      const newState = { ...prevState };
+      const currentStatus = prevState[studentId];
+
+      if (status === currentStatus) {
+        return prevState;
+      }
+
+      if (status === 'present') {
+        newState[studentId] = 'present';
+      } else if (status === 'absent') {
+        newState[studentId] = 'absent';
+      }
+
+      if (newState[studentId] === 'present' && currentStatus === 'absent') {
+      } else if (newState[studentId] === 'absent' && currentStatus === 'present') {
+      } else if (newState[studentId]) {
+        if (currentStatus === 'present') {
+          newState[studentId] = 'absent';
+        } else if (currentStatus === 'absent') {
+          newState[studentId] = 'present';
+        } else {
+          newState[studentId] = status;
+        }
+      }
+
+      return newState;
+    });
   };
 
   const handleAttendanceSubmit = async () => {
     if (!filteredStudents.length) {
-      alert('No hay estudiantes seleccionados para registrar la asistencia.');
+      Swal.fire({
+        icon: 'warning',
+        title: 'Sin estudiantes',
+        text: 'No hay estudiantes seleccionados para registrar la asistencia.',
+      });
       return;
     }
     if (!selectedDate || isNaN(new Date(selectedDate).getTime())) {
-      alert('Por favor, selecciona una fecha válida.');
+      Swal.fire({
+        icon: 'warning',
+        title: 'Fecha inválida',
+        text: 'Por favor, selecciona una fecha válida.',
+      });
       return;
     }
     if (!selectedCategory) {
-      alert('Por favor, selecciona una categoría.');
+      Swal.fire({
+        icon: 'warning',
+        title: 'Categoría requerida',
+        text: 'Por favor, selecciona una categoría.',
+      });
       return;
     }
     const validStudents = filteredStudents.filter(student => student._id && typeof student._id === 'string' && student.name && student.lastName);
     if (!validStudents.length) {
-      alert('No hay estudiantes con datos completos para registrar la asistencia.');
+      Swal.fire({
+        icon: 'warning',
+        title: 'Datos incompletos',
+        text: 'No hay estudiantes con datos completos para registrar la asistencia.',
+      });
       return;
     }
-    const incompleteStudents = validStudents.filter(student => !attendance[student._id]);
-    if (incompleteStudents.length > 0) {
-      alert('Es necesario seleccionar el estado (presente o ausente) para todos los estudiantes.');
+
+    const modifiedAttendance = validStudents
+      .map(student => {
+        const currentStatus = attendance[student._id];
+        if (currentStatus) {
+          const asistenciaExistente = asistencias.find(a => {
+            const asistenciaDate = new Date(a.date);
+            return format(asistenciaDate, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd') &&
+              a.category === selectedCategory;
+          })?.attendance.find(att => att.idStudent === student._id);
+
+          const wasModified = !asistenciaExistente ||
+            asistenciaExistente.present !== (currentStatus === 'present');
+          if (wasModified) {
+            return {
+              idStudent: student._id,
+              name: student.name,
+              lastName: student.lastName,
+              present: currentStatus === 'present',
+              createdBy: userData?.name || localStorage.getItem('authName') || 'Unknown'
+            };
+          }
+        }
+        return null;
+      })
+      .filter(att => att !== null);
+
+    if (modifiedAttendance.length === 0 && !isAttendanceSaved) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Sin cambios',
+        text: 'No se detectaron modificaciones para guardar.',
+      });
       return;
     }
 
     const attendanceData = {
-      date: new Date(selectedDate).toISOString(),
+      date: selectedDate.toISOString(), // Enviar en UTC, pero la fecha será correcta por el ajuste local
       category: selectedCategory,
-      attendance: validStudents.map(student => ({
-        idStudent: student._id,
-        name: student.name,
-        lastName: student.lastName,
-        present: attendance[student._id] === 'present'
-      }))
+      attendance: modifiedAttendance
     };
 
     try {
       if (isAttendanceSaved) {
         await actualizarAsistencia(attendanceData);
+        Swal.fire({
+          icon: 'success',
+          title: 'Actualizado',
+          text: 'Asistencia actualizada exitosamente.',
+        });
       } else {
         await agregarAsistencia(attendanceData);
+        Swal.fire({
+          icon: 'success',
+          title: 'Guardado',
+          text: 'Asistencia guardada exitosamente.',
+        });
       }
       await ObtenerAsistencia();
       setIsAttendanceSaved(true);
       setIsEditing(false);
     } catch (error) {
       console.error('Error al guardar la asistencia:', error);
-      alert('Ocurrió un error al guardar la asistencia. Por favor, intenta de nuevo.');
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Ocurrió un error al guardar la asistencia. Por favor, intenta de nuevo.',
+      });
     }
   };
 
   const handleEditAttendance = () => {
+    setPreviousAttendance({ ...attendance });
     setIsEditing(true);
   };
 
   const handleCancelEdit = () => {
+    setAttendance(previousAttendance);
     setIsEditing(false);
   };
 
@@ -221,7 +311,7 @@ const Attendance = () => {
     setIsReportModalOpen(true);
   };
 
-const generateReport = () => {
+  const generateReport = () => {
   setReportError(null);
 
   if (!selectedCategory) {
@@ -236,46 +326,42 @@ const generateReport = () => {
   const startUTC = startOfDay(reportStartDate);
   const endUTC = endOfDay(reportEndDate);
 
-  // Filtrar asistencias
+  // Filtrar asistencias válidas
   const filteredAsistencias = asistencias.filter(asistencia => {
     const asistenciaDate = new Date(asistencia.date);
     if (!isValid(asistenciaDate) || asistenciaDate < startUTC || asistenciaDate > endUTC) {
+      console.warn(`Fecha inválida o fuera de rango: ${asistencia.date}`, asistencia);
       return false;
     }
     const hasCategory = asistencia.attendance.some(studentAttendance => {
       const student = estudiantes.find(st => st._id === studentAttendance.idStudent);
-      const matches = student && student.category === selectedCategory;
-      return matches;
+      return student && student.category === selectedCategory;
     });
     return hasCategory;
   });
 
-  //mensaje de prueba 
-  // Obtener fechas únicas y ordenarlas cronológicamente
+  // Obtener fechas únicas con formato dd/MM
   const attendanceDates = [
     ...new Set(
-      filteredAsistencias.map(asistencia => ({
-        date: new Date(asistencia.date),
-        formatted: format(new Date(asistencia.date), 'dd/MM')
-      }))
+      filteredAsistencias.map(asistencia => {
+        const asistenciaDate = new Date(asistencia.date);
+        return isValid(asistenciaDate) ? format(asistenciaDate, 'dd/MM') : null;
+      }).filter(date => date !== null)
     ),
-  ]
-    .sort((a, b) => a.date - b.date)
-    .map(item => item.formatted);
+  ].sort();
 
   if (!attendanceDates.length) {
     setReportError('No hay datos de asistencia para el rango de fechas seleccionadas en esta categoría.');
     return;
   }
 
-  // Resto del código sin cambios...
-  // Generar datos del reporte
   const reportData = [];
   const studentsWithAttendance = {};
 
   filteredAsistencias.forEach(asistencia => {
     const asistenciaDate = new Date(asistencia.date);
-    const dateKey = format(asistenciaDate, 'dd/MM/yyyy');
+    if (!isValid(asistenciaDate)) return;
+    const dateKey = format(asistenciaDate, 'dd/MM/yyyy'); // Clave interna con año
     asistencia.attendance.forEach(studentAttendance => {
       const student = estudiantes.find(st => st._id === studentAttendance.idStudent);
       if (student && student.category === selectedCategory) {
@@ -298,7 +384,11 @@ const generateReport = () => {
       Categoría: studentData.category
     };
     attendanceDates.forEach(date => {
-      row[date] = studentData[date] || '';
+      // Buscar la fecha completa que comience con el día/mes
+      const fullDateKey = Object.keys(studentData).find(key =>
+        key && key.startsWith(date)
+      );
+      row[date] = fullDateKey ? studentData[fullDateKey] || '' : '';
     });
     reportData.push(row);
   });
@@ -308,7 +398,6 @@ const generateReport = () => {
     return;
   }
 
-  // Generar reporte
   if (reportFormat === 'excel') {
     const worksheet = XLSX.utils.json_to_sheet(reportData);
     const workbook = XLSX.utils.book_new();
@@ -321,13 +410,24 @@ const generateReport = () => {
     doc.setFontSize(12);
     doc.text(`Categoría: ${selectedCategory}`, 20, 20);
     doc.text(`Rango: ${format(reportStartDate, 'dd/MM/yyyy')} - ${format(reportEndDate, 'dd/MM/yyyy')}`, 20, 30);
-    const headers = ['Nombre completo', 'Categoría', ...attendanceDates];
-    const data = reportData.map(row => [row['Nombre completo'], row['Categoría'], ...attendanceDates.map(date => row[date] || '')]);
+    const headers = [
+      'Nombre completo',
+      'Categoría',
+      ...attendanceDates // Usar solo dd/MM
+    ];
+    const data = reportData.map(row => [
+      row['Nombre completo'],
+      row['Categoría'],
+      ...attendanceDates.map(date => {
+        const fullDateKey = Object.keys(row).find(key => key && key.startsWith(date));
+        return fullDateKey ? row[fullDateKey] || '' : '';
+      })
+    ]);
     autoTable(doc, {
       head: [headers],
       body: data,
       startY: 40,
-      styles: { fontSize: 8, cellPadding: 2 },
+      styles: { fontSize: 12, cellPadding: 2 },
       headStyles: { fillColor: [227, 31, 168] }
     });
     doc.save(`ReporteAsistencia_${selectedCategory}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
@@ -450,12 +550,13 @@ const generateReport = () => {
                 <div className="attendance-date-picker">
                   <DatePicker
                     selected={selectedDate}
-                    onChange={setSelectedDate}
-                    maxDate={new Date()}
+                    onChange={(date) => setSelectedDate(new Date(date))}
+                    maxDate={new Date()} // Permitir hasta el día actual
                     dateFormat="dd/MM/yyyy"
                     className="attendance-date-input"
                     locale={es}
                     dropdownMode="select"
+                    showTimeSelect={false}
                   />
                 </div>
                 <div className="attendance-search-container">
@@ -474,32 +575,45 @@ const generateReport = () => {
                       <th>Nombre y Apellido</th>
                       <th>Presente</th>
                       <th>Ausente</th>
+                      <th>Creado/Modificado por</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredStudents.map(student => (
-                      <tr key={student._id}>
-                        <td>{student.name} {student.lastName}</td>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={attendance[student._id] === 'present'}
-                            onChange={() => handleAttendanceChange(student._id, attendance[student._id] === 'present' ? null : 'present')}
-                            disabled={isAttendanceSaved && !isEditing}
-                            className={isAttendanceSaved && !isEditing ? 'disabled-checkbox' : 'activated-checkbox'}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={attendance[student._id] === 'absent'}
-                            onChange={() => handleAttendanceChange(student._id, attendance[student._id] === 'absent' ? null : 'absent')}
-                            disabled={isAttendanceSaved && !isEditing}
-                            className={isAttendanceSaved && !isEditing ? 'disabled-checkbox' : 'activated-checkbox'}
-                          />
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredStudents.map(student => {
+                      const attendanceRecord = asistencias.find(a => {
+                        const asistenciaDate = new Date(a.date);
+                        return (
+                          format(asistenciaDate, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd') &&
+                          Array.isArray(a.attendance) &&
+                          a.attendance.some(att => att.idStudent === student._id)
+                        );
+                      });
+                      const createdBy = attendanceRecord?.attendance.find(att => att.idStudent === student._id)?.createdBy || 'Unknown';
+                      return (
+                        <tr key={student._id}>
+                          <td>{student.name} {student.lastName}</td>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={attendance[student._id] === 'present'}
+                              onChange={() => handleAttendanceChange(student._id, 'present')}
+                              disabled={isAttendanceSaved && !isEditing}
+                              className={isAttendanceSaved && !isEditing ? 'disabled-checkbox' : 'activated-checkbox'}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={attendance[student._id] === 'absent'}
+                              onChange={() => handleAttendanceChange(student._id, 'absent')}
+                              disabled={isAttendanceSaved && !isEditing}
+                              className={isAttendanceSaved && !isEditing ? 'disabled-checkbox' : 'activated-checkbox'}
+                            />
+                          </td>
+                          <td>{createdBy}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               ) : (
@@ -533,40 +647,46 @@ const generateReport = () => {
               )}
             </>
           )}
-          <Modal show={isReportModalOpen} onHide={() => { setIsReportModalOpen(false); setReportError(null); }} centered ref={modalRef}>
+          <Modal show={isReportModalOpen} className="modal-attendance" onHide={() => { setIsReportModalOpen(false); setReportError(null); }} centered ref={modalRef}>
             <Modal.Header closeButton className="modal-header-attendance">
               <Modal.Title>Generar Reporte de Asistencia</Modal.Title>
             </Modal.Header>
             <Modal.Body className="modal-body-attendance">
               {reportError && <div className="alert alert-danger">{reportError}</div>}
               <Form>
-                <Form.Group controlId="reportStartDate" className="mb-3">
-                  <Form.Label>Fecha Inicial:</Form.Label>
+                <div className="report-date-selection"> 
+
+                
+                <Form.Group controlId="reportStartDate" className="report-date-group">
+                  <Form.Label>Fecha Inicial</Form.Label>
                   <DatePicker
                     selected={reportStartDate}
-                    onChange={setReportStartDate}
+                    onChange={(date) => setReportStartDate(new Date(date))}
                     maxDate={new Date()}
                     dateFormat="dd/MM/yyyy"
                     className="form-control"
                     locale={es}
                     dropdownMode="select"
+                    showTimeSelect={false}
                   />
                 </Form.Group>
-                <Form.Group controlId="reportEndDate" className="mb-3">
-                  <Form.Label>Fecha Final:</Form.Label>
+                <Form.Group controlId="reportEndDate" className="report-date-group">
+                  <Form.Label>Fecha Final</Form.Label>
                   <DatePicker
                     selected={reportEndDate}
-                    onChange={setReportEndDate}
+                    onChange={(date) => setReportEndDate(new Date(date))}
                     maxDate={new Date()}
                     minDate={reportStartDate}
                     dateFormat="dd/MM/yyyy"
                     className="form-control"
                     locale={es}
                     dropdownMode="select"
+                    showTimeSelect={false}
                   />
                 </Form.Group>
-                <Form.Group controlId="reportFormat" className="mb-3">
-                  <Form.Label>Formato:</Form.Label>
+                </div>
+                <Form.Group controlId="reportFormat" className="report-format-group">
+                  <Form.Label className="format">Formato:</Form.Label>
                   <Form.Select value={reportFormat} onChange={(e) => setReportFormat(e.target.value)}>
                     <option value="excel">Excel</option>
                     <option value="pdf">PDF</option>

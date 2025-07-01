@@ -74,6 +74,12 @@
   border-radius: var(--radius-sm);
 }
 
+.activated-checkbox:checked {
+  background-color: #28a745; /* Verde para presente */
+}
+.activated-checkbox:checked:nth-child(3) {
+  background-color: #dc3545; /* Rojo para ausente */
+}
 .attendance-today-btn,
 .attendance-report-btn {
   padding: 8px 16px;
@@ -224,6 +230,8 @@
   background-color: #e0e0e0;
 }
 
+
+
 .category-button.selected {
   background-color: #e31fa8;
   color: white;
@@ -246,6 +254,37 @@
   flex-wrap: nowrap !important;
   justify-content: center;
   padding: 10px;
+}
+
+.modal-content{
+  height: 450px !important;
+  width: 500px !important;
+}
+
+.report-date-selection {
+  display: flex;
+  flex-direction: row;
+  align-items: center !important;
+  justify-content: center;
+  gap: 10px;
+  font-weight: bold;
+}
+
+.report-date-group {
+  text-align: center;
+  
+}
+
+.format{
+  margin-right: 10px;
+  font-weight: bold;
+}
+
+.report-format-group {
+  display: flex;
+  flex-direction: row !important;
+  align-items: center !important;
+  margin-top: 20px;
 }
 
 .btn-modal-cancelar {

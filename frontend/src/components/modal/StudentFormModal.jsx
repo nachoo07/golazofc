@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { Modal, Button, Form, Alert, Spinner } from 'react-bootstrap';
 import { StudentsContext } from '../../context/student/StudentContext';
 import './studentModal.css';
@@ -7,6 +7,30 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
   const { loading } = useContext(StudentsContext);
   const [showAlert, setShowAlert] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
+  const [localFormData, setLocalFormData] = useState({ ...formData });
+
+  useEffect(() => {
+    const normalizedDate = formData.dateInputValue instanceof Date
+      ? formData.dateInputValue.toISOString().split('T')[0]
+      : formData.dateInputValue || '';
+    setLocalFormData(prev => ({
+      ...prev,
+      dateInputValue: normalizedDate,
+      name: formData.name || '',
+      lastName: formData.lastName || '',
+      dni: formData.dni || '',
+      address: formData.address || '',
+      mail: formData.mail || '',
+      category: formData.category || '',
+      guardianName: formData.guardianName || '',
+      guardianPhone: formData.guardianPhone || '',
+      state: formData.state || 'Activo',
+      sure: formData.sure || '',
+      league: formData.league || '',
+      hasSiblingDiscount: formData.hasSiblingDiscount || false,
+      profileImage: formData.profileImage || null,
+    }));
+  }, [formData]);
 
   const capitalizeWords = (str) => {
     if (!str || typeof str !== 'string') return str;
@@ -19,19 +43,16 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    handleChange({
-      target: {
-        name,
-        value:
-          name === 'name' || name === 'lastName' || name === 'guardianName'
-            ? capitalizeWords(value)
-            : value,
-      },
-    });
+    const newValue = name === 'name' || name === 'lastName' || name === 'guardianName'
+      ? capitalizeWords(value)
+      : value;
+    setLocalFormData(prev => ({ ...prev, [name]: newValue }));
+    handleChange({ target: { name, value: newValue } });
   };
 
   const handleNumberInput = (e) => {
     const value = e.target.value.replace(/[^0-9]/g, '');
+    setLocalFormData(prev => ({ ...prev, [e.target.name]: value }));
     handleChange({ target: { name: e.target.name, value } });
   };
 
@@ -42,10 +63,28 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
 
   const onSubmit = (e) => {
     e.preventDefault();
+    // Validación para asegurar que sure y league tengan un valor válido
+ if (!localFormData.sure || !['Si', 'No'].includes(localFormData.sure)) {
+      setAlertMessage('Debe seleccionar una opción para "Seguro".');
+      setShowAlert(true);
+      return;
+    }
+    if (!localFormData.league || !['Si', 'No'].includes(localFormData.league)) {
+      setAlertMessage('Debe seleccionar una opción para "Liga".');
+      setShowAlert(true);
+      return;
+    }
+    // Validación de DNI (7-9 dígitos)
+    if (localFormData.dni && !/^\d{7,9}$/.test(localFormData.dni)) {
+      setAlertMessage('El DNI debe contener entre 7 y 9 dígitos.');
+      setShowAlert(true);
+      return;
+    }
     handleSubmit(e);
   };
 
-  const today = new Date().toISOString().split('T')[0];
+  const maxDate = new Date(new Date().setUTCHours(0, 0, 0, 0)).getTime() + 86399999;
+  const formattedMaxDate = new Date(maxDate).toISOString().split('T')[0];
 
   return (
     <Modal
@@ -80,7 +119,7 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
               type="text"
               placeholder="Ej: Juan"
               name="name"
-              value={formData.name || ''}
+              value={localFormData.name || ''}
               onChange={handleInputChange}
               required
               maxLength={50}
@@ -93,7 +132,7 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
               type="text"
               placeholder="Ej: Pérez"
               name="lastName"
-              value={formData.lastName || ''}
+              value={localFormData.lastName || ''}
               onChange={handleInputChange}
               required
               maxLength={50}
@@ -106,11 +145,9 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
               type="text"
               placeholder="DNI"
               name="dni"
-              value={formData.dni || ''}
+              value={localFormData.dni || ''}
               onChange={handleNumberInput}
               required
-              pattern="\d{7,9}"
-              title="DNI debe contener 7 a 9 dígitos."
               className="form-control-custom"
             />
           </Form.Group>
@@ -119,9 +156,9 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
             <Form.Control
               type="date"
               name="dateInputValue"
-              value={formData.dateInputValue || ''}
-              onChange={handleChange}
-              max={today}
+              value={localFormData.dateInputValue || ''}
+              onChange={handleInputChange}
+              max={formattedMaxDate}
               required
               className="form-control-custom"
             />
@@ -132,8 +169,8 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
               type="text"
               placeholder="Dirección"
               name="address"
-              value={formData.address || ''}
-              onChange={handleChange}
+              value={localFormData.address || ''}
+              onChange={handleInputChange}
               required
               maxLength={100}
               className="form-control-custom"
@@ -145,8 +182,8 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
               type="email"
               placeholder="Email"
               name="mail"
-              value={formData.mail || ''}
-              onChange={handleChange}
+              value={localFormData.mail || ''}
+              onChange={handleInputChange}
               pattern="\S+@\S+\.\S+"
               title="Formato de email inválido."
               className="form-control-custom"
@@ -158,7 +195,7 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
               type="text"
               placeholder="Categoría"
               name="category"
-              value={formData.category || ''}
+              value={localFormData.category || ''}
               onChange={handleInputChange}
               required
               maxLength={50}
@@ -171,7 +208,7 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
               type="text"
               placeholder="Nombre del Tutor"
               name="guardianName"
-              value={formData.guardianName || ''}
+              value={localFormData.guardianName || ''}
               onChange={handleInputChange}
               maxLength={50}
               className="form-control-custom"
@@ -183,7 +220,7 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
               type="text"
               placeholder="Teléfono del Tutor"
               name="guardianPhone"
-              value={formData.guardianPhone || ''}
+              value={localFormData.guardianPhone || ''}
               onChange={handleNumberInput}
               pattern="\d{10,15}"
               title="El número debe tener entre 10 y 15 dígitos."
@@ -195,20 +232,52 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
             <Form.Control
               as="select"
               name="state"
-              value={formData.state || 'Activo'}
-              onChange={handleChange}
+              value={localFormData.state || 'Activo'}
+              onChange={handleInputChange}
               className="form-control-custom"
             >
               <option value="Activo">Activo</option>
               <option value="Inactivo">Inactivo</option>
             </Form.Control>
           </Form.Group>
+          <Form.Group controlId="formSure" className="studentFormModal-form-group">
+            <Form.Label>Seguro</Form.Label>
+            <Form.Select
+              name="sure"
+              value={localFormData.sure || ''}
+              onChange={handleInputChange}
+              required
+              className="form-control-custom"
+            >
+              <option value="" disabled>Seleccione una opción</option>
+              <option value="No">No</option>
+              <option value="Si">Si</option>
+            </Form.Select>
+          </Form.Group>
+          <Form.Group controlId="formLeague" className="studentFormModal-form-group">
+            <Form.Label>Liga</Form.Label>
+            <Form.Select
+              name="league"
+              value={localFormData.league || ''}
+              onChange={handleInputChange}
+              required
+              className="form-control-custom"
+            >
+              <option value="" disabled>Seleccione una opción</option>
+              <option value="No">No</option>
+              <option value="Si">Si</option>
+            </Form.Select>
+          </Form.Group>
           <Form.Group controlId="formHasSiblingDiscount" className="studentFormModal-checkbox-group">
             <Form.Check
               type="checkbox"
               name="hasSiblingDiscount"
-              checked={formData.hasSiblingDiscount || false}
-              onChange={(e) => handleChange({ target: { name: e.target.name, value: e.target.checked } })}
+              checked={localFormData.hasSiblingDiscount || false}
+              onChange={(e) => {
+                const value = e.target.checked;
+                setLocalFormData(prev => ({ ...prev, hasSiblingDiscount: value }));
+                handleChange({ target: { name: 'hasSiblingDiscount', value } });
+              }}
               label="Aplicar 10% de descuento por hermanos"
               className="studentFormModal-form-check-custom"
             />
@@ -224,10 +293,10 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
                 className="form-control-custom"
               />
             </div>
-            {formData.profileImage && (
+            {localFormData.profileImage && (
               <div className="studentFormModal-image-preview-container">
                 <img
-                  src={formData.profileImage instanceof File ? URL.createObjectURL(formData.profileImage) : formData.profileImage}
+                  src={localFormData.profileImage instanceof File ? URL.createObjectURL(localFormData.profileImage) : localFormData.profileImage}
                   alt="Vista previa"
                   className="studentFormModal-preview-img"
                   onError={(e) => (e.target.src = 'https://i.pinimg.com/736x/24/f2/25/24f22516ec47facdc2dc114f8c3de7db.jpg')}

@@ -15,7 +15,12 @@ const validateStudent = [
   body('address').notEmpty().withMessage('Dirección es obligatoria'),
   body('category').notEmpty().withMessage('Categoría es obligatoria'),
   body('mail').optional().isEmail().withMessage('Email debe ser válido'),
-  body('profileImage').optional().isURL().withMessage('La imagen de perfil debe ser una URL válida'),
+
+  body('guardianName').optional().notEmpty().withMessage('Nombre del tutor es obligatorio'),
+  body('guardianPhone').optional().matches(/^\d{10,15}$/).withMessage('El número de teléfono del tutor debe tener entre 10 y 15 dígitos'),
+  body('hasSiblingDiscount').optional().isBoolean().withMessage('Descuento por hermano debe ser un booleano'),
+body('sure').optional().isIn(['Si', 'No']).withMessage('El campo "sure" debe ser "Si" o "No"'),
+body('league').optional().isIn(['Si', 'No']).withMessage('El campo "league" debe ser "Si" o "No"'),
 ];
 // Rutas protegidas
 router.post('/create', upload.single('profileImageFile'), validateStudent, protect, admin, createStudent);

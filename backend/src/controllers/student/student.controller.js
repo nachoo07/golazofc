@@ -2,6 +2,7 @@
 import Student from '../../models/student/student.model.js';
 import Share from '../../models/share/share.model.js';
 import Attendance from '../../models/attendance/attendance.model.js';
+import { Payment } from '../../models/payment/payment.model.js';
 import mongoose from 'mongoose';
 import multer from 'multer';
 import cloudinary from 'cloudinary';
@@ -159,7 +160,7 @@ export const createStudent = async (req, res) => {
   try {
     const {
       name, lastName, dni, birthDate, address, guardianName, guardianPhone,
-      category, mail, state, hasSiblingDiscount, profileImage,
+      category, mail, state, hasSiblingDiscount, profileImage, sure, league
     } = sanitize(req.body);
 
     let finalProfileImage = profileImage || 'https://i.pinimg.com/736x/24/f2/25/24f22516ec47facdc2dc114f8c3de7db.jpg';
@@ -224,6 +225,8 @@ export const createStudent = async (req, res) => {
       state: state || 'Activo',
       profileImage: finalProfileImage,
       hasSiblingDiscount,
+      sure,
+      league,
     });
 
     const savedStudent = await newStudent.save();
@@ -262,6 +265,8 @@ export const deleteStudent = async (req, res) => {
       { $pull: { attendance: { studentId: id } } }
     );
     await Attendance.deleteMany({ attendance: [] });
+    // Eliminar pagos asociados
+    await Payment.deleteMany({ studentId: id });
     await Student.findByIdAndDelete(id);
     logger.info({ studentId: id }, 'Estudiante eliminado');
     res.status(200).json({ message: 'Estudiante eliminado exitosamente' });
@@ -276,7 +281,7 @@ export const updateStudent = async (req, res) => {
     const { id } = sanitize(req.params);
     const {
       name, lastName, dni, birthDate, address, guardianName, guardianPhone,
-      category, mail, state, hasSiblingDiscount, profileImage,
+      category, mail, state, hasSiblingDiscount, profileImage, sure, league
     } = sanitize(req.body);
 
     if (!name || !lastName || !dni || !address || !category ) {
@@ -343,6 +348,8 @@ export const updateStudent = async (req, res) => {
       state,
       profileImage: finalProfileImage,
       hasSiblingDiscount,
+      sure,
+      league,
     };
 
     if (birthDate && birthDate !== format(existingStudent.birthDate, 'yyyy-MM-dd')) {
@@ -415,7 +422,7 @@ export const importStudents = async (req, res) => {
     const processStudent = async (studentData) => {
       const {
         name, lastName, dni, birthDate, address, guardianName, guardianPhone,
-        category, mail, state, hasSiblingDiscount, profileImage, rowNumber,
+        category, mail, state, hasSiblingDiscount, profileImage, rowNumber, sure, league
       } = sanitize(studentData);
 
       const row = rowNumber || 'Desconocida';
@@ -478,6 +485,8 @@ export const importStudents = async (req, res) => {
           state: state || 'Activo',
           profileImage: finalProfileImage,
           hasSiblingDiscount,
+          sure,
+          league,
         });
 
         const savedStudent = await newStudent.save();

@@ -266,7 +266,16 @@ const StudentDetail = () => {
                       <label className="label-text">Descuento por Hermanos</label>
                       <input type="text" value={student.hasSiblingDiscount ? 'Sí' : 'No'} readOnly className="form-control-custom" />
                     </div>
-                  </div>
+                  <div className="form-group">
+                      <label className="label-text">Seguro</label>
+                      <input type="text" value={student.sure === 'Si' ? 'Si' : 'No'} readOnly className="form-control-custom" />
+                    </div>
+                   <div className="form-group">
+                      <label className="label-text">Liga</label>
+                      <input type="text" value={student.league === 'Si' ? 'Si' : 'No'} readOnly className="form-control-custom" />
+                    </div>
+                </div>
+
                 </div>
               </div>
             </div>

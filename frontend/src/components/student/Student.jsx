@@ -24,7 +24,7 @@ const Student = () => {
   const [editStudent, setEditStudent] = useState(null);
   const [filterState, setFilterState] = useState("todos");
   const [formData, setFormData] = useState({
-    name: "",lastName: "",dni: "",birthDate: "",address: "",mail: "",category: "",guardianName: "",guardianPhone: "",profileImage: null,state: "Activo",hasSiblingDiscount: false,});
+    name: "",lastName: "",dni: "",birthDate: "",address: "",mail: "",category: "",guardianName: "",guardianPhone: "",profileImage: null,state: "Activo",hasSiblingDiscount: false, sure: false, league: false,});
   const [currentPage, setCurrentPage] = useState(1);
   const [showAlert, setShowAlert] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
@@ -161,6 +161,8 @@ const Student = () => {
               profileImage,
               state: row.Estado || 'Activo',
               hasSiblingDiscount: row['Descuento por Hermano'] === 'Sí' || false,
+              sure: row['Seguro'] === 'Si' || false,
+              league: row['Liga'] === '1' || false,
               rowNumber: index + 2, // Incluir el número de fila (comienza en 2)
             };
           });
@@ -229,36 +231,40 @@ const Student = () => {
   };
 
   const handleShow = (student = null) => {
-    if (student) {
-      setEditStudent(student);
-      const dateInputValue = student.birthDate || ''; // Mantener yyyy-MM-dd
-      setFormData({
-        ...student,
-        birthDate: dateInputValue,
-        dateInputValue,
-        profileImage: student.profileImage,
-        hasSiblingDiscount: student.hasSiblingDiscount || false,
-      });
-    } else {
-      setEditStudent(null);
-      setFormData({
-        name: '',
-        lastName: '',
-        dni: '',
-        birthDate: '',
-        dateInputValue: '',
-        address: '',
-        mail: '',
-        category: '',
-        guardianName: '',
-        guardianPhone: '',
-        profileImage: null,
-        state: 'Activo',
-        hasSiblingDiscount: undefined,
-      });
-    }
-    setShow(true);
-  };
+  if (student) {
+    setEditStudent(student);
+    const dateInputValue = student.birthDate || '';
+    setFormData({
+      ...student,
+      birthDate: dateInputValue,
+      dateInputValue,
+      profileImage: student.profileImage,
+      hasSiblingDiscount: student.hasSiblingDiscount || false,
+      sure: student.sure || '', // Vacío si no hay valor
+      league: student.league || '', // Vacío si no hay valor
+    });
+  } else {
+    setEditStudent(null);
+    setFormData({
+      name: '',
+      lastName: '',
+      dni: '',
+      birthDate: '',
+      dateInputValue: '',
+      address: '',
+      mail: '',
+      category: '',
+      guardianName: '',
+      guardianPhone: '',
+      profileImage: null,
+      state: 'Activo',
+      hasSiblingDiscount: undefined,
+      sure: '', // Valor vacío por defecto
+      league: '', // Valor vacío por defecto
+    });
+  }
+  setShow(true);
+};
 
   const handleClose = () => {
     setShow(false);

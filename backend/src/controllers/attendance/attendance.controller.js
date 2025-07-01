@@ -7,7 +7,7 @@ const logger = pino();
 export const getAllAttendances = async (req, res) => {
   try {
     const attendances = await Attendance.find()
-      .select('date category attendance.idStudent attendance.name attendance.lastName attendance.present')
+      .select('date category attendance.idStudent attendance.name attendance.lastName attendance.present attendance.createdBy')
       .lean();
     res.status(200).json(attendances); // Siempre devuelve un arreglo, incluso si está vacío
   } catch (error) {
@@ -48,11 +48,12 @@ export const createAttendance = async (req, res) => {
 };
 
 // Actualizar una asistencia específica dentro de una categoría y fecha
+// Actualizar una asistencia específica dentro de una categoría y fecha
 export const updateAttendance = async (req, res) => {
   const { date, category, attendance } = sanitize(req.body);
 
-  if (!date || !category || !attendance || !Array.isArray(attendance)) {
-    return res.status(400).json({ message: "Faltan campos requeridos" });
+  if (!date || !category || !attendance || !Array.isArray(attendance) || attendance.length === 0) {
+    return res.status(400).json({ message: "Faltan campos requeridos o la lista de asistencia está vacía" });
   }
 
   try {
@@ -66,17 +67,40 @@ export const updateAttendance = async (req, res) => {
     const endOfDay = new Date(attendanceDate);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const updatedAttendance = await Attendance.findOneAndUpdate(
-      { date: { $gte: startOfDay, $lte: endOfDay }, category },
-      { $set: { attendance } },
-      { new: true }
-    );
+    // Obtener el usuario actual desde el token o la solicitud
+    const currentUser = req.user?.name || 'Unknown'; // Ajusta según tu autenticación
 
-    if (!updatedAttendance) {
+    // Encontrar la asistencia existente
+    const existingAttendance = await Attendance.findOne({ date: { $gte: startOfDay, $lte: endOfDay }, category });
+    if (!existingAttendance) {
       return res.status(404).json({ message: "Asistencia no encontrada" });
     }
 
-    logger.info({ date, category }, 'Asistencia actualizada');
+    // Iterar sobre las entradas modificadas y actualizar solo las específicas
+    const updatePromises = attendance.map(async (att) => {
+      const { idStudent, present } = att;
+      await Attendance.updateOne(
+        { 
+          _id: existingAttendance._id, 
+          "attendance.idStudent": idStudent 
+        },
+        { 
+          $set: { 
+            "attendance.$.present": present,
+            "attendance.$.createdBy": currentUser,
+            updatedAt: Date.now()
+          }
+        }
+      );
+    });
+
+    // Esperar a que todas las actualizaciones se completen
+    await Promise.all(updatePromises);
+
+    // Obtener el documento actualizado para devolverlo
+    const updatedAttendance = await Attendance.findOne({ date: { $gte: startOfDay, $lte: endOfDay }, category });
+
+    logger.info({ date, category, user: currentUser }, 'Asistencia actualizada');
     res.status(200).json({ message: "Asistencia actualizada exitosamente", attendance: updatedAttendance });
   } catch (error) {
     logger.error({ error: error.message }, 'Error al actualizar asistencia');

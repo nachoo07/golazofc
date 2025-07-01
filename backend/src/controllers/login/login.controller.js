@@ -85,7 +85,6 @@ export const logout = (req, res) => {
             RefreshToken.deleteOne({ token: refreshToken }).exec(); // Eliminar de la base de datos
             logger.info('Refresh token eliminado durante logout');
         }
-
         res.clearCookie('token', {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',

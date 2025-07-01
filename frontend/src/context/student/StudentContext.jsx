@@ -189,6 +189,10 @@ const StudentsProvider = ({ children }) => {
         mail: 'Correo Electrónico',
         guardianName: 'Nombre del Tutor',
         guardianPhone: 'Teléfono del Tutor',
+        profileImage: 'Imagen de Perfil',
+        hasSiblingDiscount: 'Descuento por Hermano',
+        sure: 'Seguro',
+        league: 'Liga',
       };
 
       if (rawMessage.includes('duplicate key error')) {

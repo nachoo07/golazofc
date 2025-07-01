@@ -31,7 +31,11 @@ const attendanceSchema = new mongoose.Schema({
             present: {
                 type: Boolean,
                 required: true
-            }
+            },
+            createdBy:{
+                type: String
+            },
+            _id: false 
         }
     ]
 }, { timestamps: true });

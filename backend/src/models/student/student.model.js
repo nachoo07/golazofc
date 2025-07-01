@@ -19,7 +19,7 @@ const studentSchema = new mongoose.Schema({
     trim: true,
     validate: {
       validator: (v) => /^\d{7,9}$/.test(v),
-      message: 'Dni must contain 7 to 9 digits.',
+      message: 'El DNI debe contener de 7 a 9 dígitos.',
     },
   },
   birthDate: {
@@ -40,7 +40,7 @@ const studentSchema = new mongoose.Schema({
     trim: true,
     validate: {
       validator: (v) => !v || /^\d{10,15}$/.test(v),
-      message: 'Guardian phone number must have between 10 and 15 digits.',
+      message: 'El número de teléfono del tutor debe tener entre 10 y 15 dígitos.',
     },
   },
   category: {
@@ -55,7 +55,7 @@ const studentSchema = new mongoose.Schema({
     default: '',
     validate: {
       validator: (v) => !v || /\S+@\S+\.\S+/.test(v),
-      message: 'Invalid email format.',
+      message: 'Formato de correo electrónico no válido.',
     },
   },
   state: {
@@ -71,7 +71,18 @@ const studentSchema = new mongoose.Schema({
   hasSiblingDiscount: {
     type: Boolean,
     default: false,
-  }
+  },
+  league: {
+    type: String,
+    enum: ['Si', 'No'],
+    default: ""
+  },
+  sure: {
+    type: String,
+    enum: ['Si', 'No'],
+    default: ""
+  },
+
 }, {
   timestamps: true,
 });

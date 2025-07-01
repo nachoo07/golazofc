@@ -27,7 +27,7 @@ app.set('trust proxy', 1); // Cambia de 'true' a 1
 
 const allowedOrigins = process.env.NODE_ENV === 'production'
   ? ['https://golazoescueladefutbol.com', 'https://www.golazoescueladefutbol.com']
-  : ['http://localhost:4005', 'http://localhost:5173'];
+  : ['http://localhost:5173', 'http://localhost:4005'];
 
 app.use(helmet());
 app.use(express.json({ limit: '20mb' }));

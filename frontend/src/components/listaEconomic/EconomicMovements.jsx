@@ -52,18 +52,47 @@ const EconomicMovements = () => {
     }, []);
 
     useEffect(() => {
-        if (auth === "admin" && !isMounted) {
-            setIsMounted(true);
-            fetchAllPayments();
-            fetchMotions();
-            setCuotas([]);
-            obtenerCuotasPorFecha(selectedDate).then((newCuotas) => {
-            });
-        }
+        const loadData = async () => {
+            if (auth === "admin" && !isMounted) {
+                setIsMounted(true);
+                try {
+                    await Promise.all([
+                        fetchAllPayments(),
+                        fetchMotions(),
+                        obtenerCuotasPorFecha(selectedDate).then((newCuotas) => {
+                            console.log("Cuotas cargadas:", newCuotas); // Depuración
+                            setCuotas(newCuotas);
+                        })
+                    ]);
+                } catch (error) {
+                    console.error("Error cargando datos:", error);
+                }
+            }
+        };
+        loadData();
     }, [auth, fetchAllPayments, fetchMotions, obtenerCuotasPorFecha, selectedDate, setCuotas, isMounted]);
 
     useEffect(() => {
+        const fetchCuotasForDate = async () => {
+            if (auth === "admin") {
+                try {
+                    const newCuotas = await obtenerCuotasPorFecha(selectedDate);
+                    console.log("Cuotas actualizadas para fecha:", selectedDate, newCuotas); // Depuración
+                    setCuotas(newCuotas);
+                } catch (error) {
+                    console.error("Error actualizando cuotas por fecha:", error);
+                }
+            }
+        };
+        fetchCuotasForDate();
+    }, [auth, obtenerCuotasPorFecha, selectedDate, setCuotas]);
+
+    useEffect(() => {
         const combineData = () => {
+            if (!payments || !motions || !cuotas || !estudiantes) {
+                setData([]);
+                return;
+            }
             const seen = new Set();
             const allMovements = [
                 ...payments.map(p => {
@@ -87,20 +116,26 @@ const EconomicMovements = () => {
                     const id = c._id;
                     if (seen.has(id)) return null;
                     seen.add(id);
+                    const paymentDate = c.paymentdate || c.date; // Usar paymentdate o date como fallback
                     return {
                         ...c,
                         type: "Cuota",
                         name: c.student?._id ? `${c.student.name || ""} ${c.student.lastName || ""}`.trim() || "-" : "-",
                         concept: "-",
                         paymentMethod: c.paymentmethod || "-",
-                        paymentDate: c.paymentdate
+                        paymentDate: paymentDate // Asegurar que paymentDate esté definido
                     };
                 }).filter(c => c !== null),
             ].filter(m => {
-                if (!m.paymentDate && !m.date) return false;
+                if (!m.paymentDate && !m.date) {
+                    console.log("Movimiento sin fecha:", m); // Depuración
+                    return false;
+                }
                 const movementDate = new Date(m.paymentDate || m.date);
-                const adjustedDate = new Date(movementDate.getTime());
-                return adjustedDate.toISOString().split("T")[0] === selectedDate;
+                const adjustedDate = new Date(movementDate.getTime() + 3 * 60 * 60 * 1000); // Ajuste UTC-3
+                const movementDateStr = adjustedDate.toISOString().split("T")[0];
+                console.log(`Comparando ${movementDateStr} con ${selectedDate}`); // Depuración
+                return movementDateStr === selectedDate;
             });
             setData(allMovements);
         };
@@ -110,162 +145,77 @@ const EconomicMovements = () => {
     const handleDateChange = (e) => {
         setSelectedDate(e.target.value);
     };
-const handleExportExcel = () => {
-  // Calcular totales
-  const totalAmount = data.reduce((sum, m) => sum + (m.amount || 0), 0);
-  const cashAmount = data.reduce(
-    (sum, m) => (m.paymentMethod.toLowerCase() === "efectivo" ? sum + (m.amount || 0) : sum),
-    0
-  );
-  const transferAmount = data.reduce(
-    (sum, m) => (m.paymentMethod.toLowerCase() === "transferencia" ? sum + (m.amount || 0) : sum),
-    0
-  );
 
-  // Preparar datos para el Excel
-  const exportData = [
-    ...data.map((m) => ({
-      Fecha: new Date(new Date(m.paymentDate || m.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString(
-        "es-ES",
-        {
-          timeZone: "America/Argentina/Buenos_Aires",
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
+    const handleExportExcel = () => {
+        const totalAmount = data.reduce((sum, m) => sum + (m.amount || 0), 0);
+        const cashAmount = data.reduce(
+            (sum, m) => (m.paymentMethod.toLowerCase() === "efectivo" ? sum + (m.amount || 0) : sum),
+            0
+        );
+        const transferAmount = data.reduce(
+            (sum, m) => (m.paymentMethod.toLowerCase() === "transferencia" ? sum + (m.amount || 0) : sum),
+            0
+        );
+
+        const exportData = [
+            ...data.map((m) => ({
+                Fecha: new Date(new Date(m.paymentDate || m.date).getTime() + 3 * 60 * 60 * 1000).toLocaleDateString(
+                    "es-ES",
+                    {
+                        timeZone: "America/Argentina/Buenos_Aires",
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                    }
+                ),
+                Concepto: capitalizeFirstLetter(m.concept || "-"),
+                Monto: m.amount,
+                Método: capitalizeFirstLetter(m.paymentMethod || "-"),
+                Tipo: capitalizeFirstLetter(m.type || "-"),
+                Nombre: capitalizeFirstLetter(m.name || "-"),
+            })),
+            {
+                Fecha: "Total",
+                Concepto: "",
+                Monto: totalAmount,
+                Método: `Efectivo: $${cashAmount.toLocaleString("es-ES")} - Transferencia: $${transferAmount.toLocaleString(
+                    "es-ES"
+                )}`,
+                Tipo: "",
+                Nombre: "",
+            },
+        ];
+
+        const ws = XLSX.utils.json_to_sheet(exportData);
+
+        const headerStyle = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "e31fa8" } }, border: { style: "thin" }, alignment: { horizontal: "center" } };
+        const cellStyle = { border: { style: "thin" }, alignment: { horizontal: "left" } };
+        const totalRowStyle = { font: { bold: true }, fill: { fgColor: { rgb: "D3D3D3" } }, border: { style: "thin" }, alignment: { horizontal: "left" } };
+
+        const headers = ["Fecha", "Concepto", "Monto", "Método", "Tipo", "Nombre"];
+        headers.forEach((header, index) => {
+            const cellRef = XLSX.utils.encode_cell({ r: 0, c: index });
+            if (ws[cellRef]) ws[cellRef].s = headerStyle;
+        });
+
+        const range = XLSX.utils.decode_range(ws["!ref"]);
+        for (let row = 1; row <= range.e.r; row++) {
+            for (let col = 0; col <= range.e.c; col++) {
+                const cellRef = XLSX.utils.encode_cell({ r: row, c: col });
+                if (ws[cellRef]) {
+                    ws[cellRef].s = row === range.e.r ? totalRowStyle : cellStyle;
+                    if (col === 2) ws[cellRef].z = "$#,##0";
+                }
+            }
         }
-      ),
-      Concepto: capitalizeFirstLetter(m.concept || "-"),
-      Monto: m.amount, // Usar número para formato de moneda
-      Método: capitalizeFirstLetter(m.paymentMethod || "-"),
-      Tipo: capitalizeFirstLetter(m.type || "-"),
-      Nombre: capitalizeFirstLetter(m.name || "-"),
-    })),
-    {
-      Fecha: "Total",
-      Concepto: "",
-      Monto: totalAmount,
-      Método: `Efectivo: $${cashAmount.toLocaleString("es-ES")} - Transferencia: $${transferAmount.toLocaleString(
-        "es-ES"
-      )}`,
-      Tipo: "", // Dejamos vacío, ya que se combinará con Método
-      Nombre: "",
-    },
-  ];
 
-  // Crear hoja de cálculo
-  const ws = XLSX.utils.json_to_sheet(exportData);
+        ws["!merges"] = [{ s: { r: range.e.r, c: 3 }, e: { r: range.e.r, c: 4 } }];
+        ws["!cols"] = [{ wch: 12 }, { wch: 20 }, { wch: 15 }, { wch: 25 }, { wch: 22 }, { wch: 20 }];
 
-  // Definir estilos
-  const headerStyle = {
-    font: {
-      name: "Arial",
-      sz: 14,
-      bold: true,
-      color: { rgb: "FFFFFF" }, // Texto blanco
-    },
-    fill: {
-      fgColor: { rgb: "e31fa8" }, // Fondo gris oscuro
-      patternType: "solid",
-    },
-    border: {
-      top: { style: "thin", color: { rgb: "000000" } },
-      bottom: { style: "thin", color: { rgb: "000000" } },
-      left: { style: "thin", color: { rgb: "000000" } },
-      right: { style: "thin", color: { rgb: "000000" } },
-    },
-    alignment: {
-      horizontal: "center",
-      vertical: "center",
-      wrapText: true,
-    },
-  };
-
-  const cellStyle = {
-    border: {
-      top: { style: "thin", color: { rgb: "000000" } },
-      bottom: { style: "thin", color: { rgb: "000000" } },
-      left: { style: "thin", color: { rgb: "000000" } },
-      right: { style: "thin", color: { rgb: "000000" } },
-    },
-    font: {
-      name: "Arial",
-      sz: 12,
-    },
-    alignment: {
-      horizontal: "left",
-      vertical: "center",
-      wrapText: true,
-    },
-  };
-
-  const totalRowStyle = {
-    font: {
-      name: "Arial",
-      sz: 12,
-      bold: true,
-    },
-    fill: {
-      fgColor: { rgb: "D3D3D3" }, // Fondo gris claro
-      patternType: "solid",
-    },
-    border: {
-      top: { style: "thin", color: { rgb: "000000" } },
-      bottom: { style: "thin", color: { rgb: "000000" } },
-      left: { style: "thin", color: { rgb: "000000" } },
-      right: { style: "thin", color: { rgb: "000000" } },
-    },
-    alignment: {
-      horizontal: "left",
-      vertical: "center",
-      wrapText: true,
-    },
-  };
-
-  // Aplicar estilos a los encabezados
-  const headers = ["Fecha", "Concepto", "Monto", "Método", "Tipo", "Nombre"];
-  headers.forEach((header, index) => {
-    const cellRef = XLSX.utils.encode_cell({ r: 0, c: index });
-    ws[cellRef].s = headerStyle;
-  });
-
-  // Aplicar estilos a las celdas de datos y formato de moneda a "Monto"
-  const range = XLSX.utils.decode_range(ws["!ref"]);
-  for (let row = 1; row <= range.e.r; row++) {
-    for (let col = 0; col <= range.e.c; col++) {
-      const cellRef = XLSX.utils.encode_cell({ r: row, c: col });
-      if (!ws[cellRef]) continue; // Saltar celdas vacías
-      ws[cellRef].s = row === range.e.r ? totalRowStyle : cellStyle; // Estilo diferente para la fila total
-      if (col === 2) {
-        // Columna "Monto" (índice 2)
-        ws[cellRef].z = "$#,##0"; // Formato de moneda
-      }
-    }
-  }
-
-  // Combinar celdas de "Método" y "Tipo" en la fila de total
-  const lastRow = range.e.r; // Última fila (fila de total)
-  ws["!merges"] = [
-    {
-      s: { r: lastRow, c: 3 }, // Inicio: celda de "Método" (columna 3)
-      e: { r: lastRow, c: 4 }, // Fin: celda de "Tipo" (columna 4)
-    },
-  ];
-
-  // Ajustar ancho de columnas
-  ws["!cols"] = [
-    { wch: 12 }, // Fecha
-    { wch: 20 }, // Concepto
-    { wch: 15 }, // Monto
-    { wch: 25 }, // Método
-    { wch: 22 }, // Tipo
-    { wch: 20 }, // Nombre
-  ];
-
-  // Crear libro y guardar archivo
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Movimientos");
-  XLSX.writeFile(wb, `Movimientos_${selectedDate}.xlsx`);
-};
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Movimientos");
+        XLSX.writeFile(wb, `Movimientos_${selectedDate}.xlsx`);
+    };
 
     const handleLogout = () => {
         navigate("/login");
@@ -339,12 +289,12 @@ const handleExportExcel = () => {
                             value={selectedDate} 
                             onChange={handleDateChange} 
                             max={new Date().toISOString().split("T")[0]} 
-                            disabled={isLoading} // Deshabilitar durante carga
+                            disabled={isLoading} 
                         />
                         <button 
                             className="export-btn" 
                             onClick={handleExportExcel} 
-                            disabled={isLoading || data.length === 0} // Deshabilitar durante carga o sin datos
+                            disabled={isLoading || data.length === 0} 
                         >
                             <FaFileExport /> Exportar a Excel
                         </button>

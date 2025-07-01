@@ -24,11 +24,16 @@
   display: none; 
 }
 
-.search-container {
+.search-wrapper {
   position: relative;
   width: 100%;
   max-width: 500px;
-  margin: 10px auto;
+}
+
+.search-container {
+  position: relative;
+  width: 100%;
+  margin: 0 0 10px;
 }
 
 .search-icon {
@@ -43,13 +48,13 @@
 .search-input {
   width: 100%;
   padding: 12px 40px;
-  border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
+  border-radius: 4px;
   background-color: white;
   color: var(--text-color);
   font-size: 1rem;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .search-input:focus {
@@ -102,14 +107,19 @@
   margin-left: var(--sidebar-collapsed);
 }
 
-.dashboard-welcome {
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
   margin-bottom: 20px;
 }
 
-.welcome-text h1 {
+.welcome-text-email h1 {
   font-size: 1.8rem;
   font-weight: 600;
   color: var(--text-color);
+  margin: 0px !important;
+  justify-content: end;
 }
 
 .loading {
@@ -142,53 +152,32 @@
   margin-bottom: 15px;
 }
 
-.student-search-input {
-  width: 100%;
-  padding: 12px 40px 12px 15px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  font-size: 14px;
-  transition: border-color 0.3s ease;
-  background-color: var(--card-bg);
-}
-
-.student-search-input:focus {
-  border-color: var(--primary-color);
-  outline: none;
-}
-
-.student-search-results {
+.student-dropdown {
   position: absolute;
   top: 100%;
   left: 0;
-  right: 0;
-  background: var(--card-bg);
+  width: 100%;
+  background: white;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  border-radius: 0 0 4px 4px;
   max-height: 200px;
   overflow-y: auto;
   list-style: none;
-  padding: 5px 0;
-  margin: 5px 0 0;
+  padding: 0;
+  margin: 2px 0 0;
   z-index: 1000;
-  box-shadow: var(--card-shadow);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.student-search-results li {
+.student-option {
   padding: 10px 15px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  font-size: 1rem;
+  color: var(--text-color);
 }
 
-.student-search-results li:hover {
-  background: var(--background-alt);
-}
-
-.check-icon {
-  color: var(--primary-color);
-  font-size: 16px;
+.student-option:hover {
+  background-color: #f9f9f9;
 }
 
 .selected-students {
@@ -199,14 +188,14 @@
   min-height: 30px;
 }
 
-.selected-student{
+.selected-student {
   display: flex;
   align-items: center;
   background-color: #fff;
   border: 1px solid #e0e6e0;
   border-radius: 25px;
   padding: 8px 12px;
-  margin-bottom: 8px ;
+  margin-bottom: 8px;
   transition: all 0.3s ease;
 }
 
@@ -263,12 +252,11 @@
   color: var(--text-color);
 }
 
-
 .select-all-btn.active,
 .select-overdue-btn.active {
-  background: #e0e6e0 !important; /* Gris claro para botón activo */
+  background: #e0e6e0 !important;
   color: var(--text-color);
-  transition: none; /* Evita transiciones en hover */
+  transition: none;
 }
 
 .cancel-btn:hover {
@@ -277,7 +265,7 @@
 
 .select-all-btn.active:hover,
 .select-overdue-btn.active:hover {
-  background: #e0e6e0 !important; /* Mantiene el mismo gris claro al pasar el mouse */
+  background: #e0e6e0 !important;
 }
 
 .email-subject {
@@ -350,15 +338,14 @@
   background: #ccc;
 }
 
- .email{
+.email {
   background: #e31fa8 !important;
   color: white !important;
-  }
+}
 
-  .email:hover {
-    background: #a21a87 !important;
-    
-  }
+.email:hover {
+  background: #a21a87 !important;
+}
 
 @media (max-width: 576px) {
   .sidebar {
@@ -370,20 +357,31 @@
     padding: 10px;
   }
 
-  .welcome-text h1 {
+  .welcome-text-email h1 {
     font-size: 1.4rem;
   }
 
-  .student-search-input {
+  .search-wrapper {
+    max-width: 100%;
+  }
+
+  .search-input {
+    padding: 10px 30px;
+  }
+
+  .search-clear {
+    right: 10px;
+  }
+
+  .student-dropdown {
     width: 100%;
+    left: 0;
   }
 
   .selection-actions {
-   font-size: 14px;
-   justify-content: space-between;
+    font-size: 14px;
+    justify-content: space-between;
   }
-
- 
 
   .select-all-btn,
   .select-overdue-btn,
@@ -408,17 +406,25 @@
   }
 
   .search-section {
-    display: none; /* Ocultar buscador en pantallas móviles */
+    display: none;
   }
 
-  .selected-student{
-  padding: 8px 12px;
-  font-size: 11px;
-  margin-bottom: 0px;
-}
+  .selected-student {
+    padding: 8px 12px;
+    font-size: 11px;
+    margin-bottom: 0;
+  }
 
-.remove-icon {
-  font-size: 12px;
-  
-}
+  .remove-icon {
+    font-size: 12px;
+  }
+
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .welcome-text {
+    margin-bottom: 10px;
+  }
 }
