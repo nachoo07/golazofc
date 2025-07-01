@@ -22,6 +22,7 @@ const SharesProvider = ({ children }) => {
       setLoading(true);
       const response = await axios.get("/api/shares", {
         withCredentials: true,
+        params: { all: true }
       });
       const data = Array.isArray(response.data) ? response.data : [];
       console.log("Cuotas obtenidas:", data); // Log para depuración

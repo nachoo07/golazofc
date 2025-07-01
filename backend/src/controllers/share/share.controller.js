@@ -9,7 +9,7 @@ import { DateTime } from 'luxon';
 const logger = pino();
 
 export const getAllShares = async (req, res) => {
-  const { page = 1, limit = 10 } = req.query;
+  const { page = 1, limit = 10, all = false } = req.query;
   try {
     const shares = await Share.find()
       .populate({ path: 'student', select: 'name lastName' })
