@@ -9,12 +9,9 @@ import { DateTime } from 'luxon';
 const logger = pino();
 
 export const getAllShares = async (req, res) => {
-  const { page = 1, limit = 10, all = false } = req.query;
   try {
     const shares = await Share.find()
       .populate({ path: 'student', select: 'name lastName' })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit))
       .lean();
     res.status(200).json(shares.length ? shares : { message: "No hay cuotas disponibles" });
   } catch (error) {
@@ -173,13 +170,10 @@ export const getShareById = async (req, res) => {
 
 export const getSharesByStudent = async (req, res) => {
   const { studentId } = sanitize(req.params);
-  const { page = 1, limit = 10 } = req.query;
 
   try {
     const shares = await Share.find({ student: studentId })
       .populate({ path: 'student', select: 'name lastName' })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit))
       .lean();
     res.status(200).json(shares.length ? shares : { message: "No hay cuotas disponibles para este estudiante" });
   } catch (error) {

@@ -25,12 +25,9 @@ export const createMotion = async (req, res) => {
 };
 
 export const getMotions = async (req, res) => {
-  const { page = 1, limit = 10 } = req.query;
   try {
     const motions = await Motion.find()
       .select('concept date amount paymentMethod incomeType')
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit))
       .lean();
     res.status(200).json(motions.length ? motions : { message: "No hay movimientos disponibles" });
   } catch (error) {

@@ -5,12 +5,9 @@ import pino from "pino";
 const logger = pino();
 
 export const getAllUsers = async (req, res, next) => {
-  const { page = 1, limit = 10 } = req.query;
   try {
     const users = await User.find()
       .select("name mail role state lastLogin")
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit))
       .lean();
     res.status(200).json(users.length ? users : { message: "No hay usuarios disponibles" });
   } catch (error) {
