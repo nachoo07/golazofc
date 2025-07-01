@@ -85,13 +85,14 @@ const Share = () => {
       const dniSearch = student.dni?.toLowerCase().includes(searchNormalized);
       const matchesSearch = fullName.includes(searchNormalized) || dniSearch;
 
-      const studentCuotas = cuotas.filter((cuota) => cuota.student?._id === student._id);
-      const lastCuota = studentCuotas.length > 0
-        ? studentCuotas.reduce((latest, current) =>
-            new Date(current.date) > new Date(latest.date) ? current : latest,
-            studentCuotas[0]
-          )
-        : null;
+     const studentCuotas = cuotas.filter((cuota) => cuota.student?._id === student._id);
+    let lastCuota = null;
+    if (studentCuotas.length > 0) {
+      lastCuota = studentCuotas.reduce((latest, current) =>
+        new Date(current.date) > new Date(latest.date) ? current : latest,
+        studentCuotas[0]
+      );
+    }
       const matchesStatus =
         statusFilter === "todos" ||
         (lastCuota && lastCuota.state.toLowerCase() === statusFilter.toLowerCase()) ||
@@ -304,66 +305,66 @@ const Share = () => {
             </div>
           </section>
           <section className="cuotas-table-section">
-              <div className="table-wrapper">
-                <table className="cuotas-table">
-                  <thead>
+            <div className="table-wrapper">
+              <table className="cuotas-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Nombre</th>
+                    <th>Apellido</th>
+                    <th>Dni</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentItems.length > 0 ? (
+                    currentItems.map((student, index) => {
+                      const studentCuotas = cuotas.filter(
+                        (cuota) => cuota.student?._id === student._id
+                      );
+                      const lastCuota = studentCuotas.length > 0
+                        ? studentCuotas.reduce((latest, current) =>
+                          new Date(current.date) > new Date(latest.date) ? current : latest,
+                          studentCuotas[0]
+                        )
+                        : null;
+                      const cuotaStatus = lastCuota ? lastCuota.state : "Sin cuotas";
+                      console.log(`Estudiante: ${student.name} ${student.lastName}, Cuotas: ${studentCuotas.length}, Última cuota: ${lastCuota?.state || 'N/A'}`);
+                      return (
+                        <tr key={student._id}>
+                          <td>{indexOfFirstItem + index + 1}</td>
+                          <td>{student.name}</td>
+                          <td className="student-name">{student.lastName}</td>
+                          <td>{student.dni}</td>
+                          <td>{cuotaStatus}</td>
+                          <td className="action-buttons">
+                            <button
+                              className="action-btn-share"
+                              onClick={() => handleViewCuotas(student._id)}
+                            >
+                              <FaUserCircle />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
                     <tr>
-                      <th>#</th>
-                      <th>Nombre</th>
-                      <th>Apellido</th>
-                      <th>Dni</th>
-                      <th>Estado</th>
-                      <th>Acciones</th>
+                      <td colSpan="6" className="empty-table-message">
+                        {searchTerm ? (
+                          `No hay cuotas que coincidan con "${searchTerm}"`
+                        ) : statusFilter !== 'todos' ? (
+                          `No hay cuotas con estado "${statusFilter === 'sin cuotas' ? 'Sin cuotas' : statusFilter}"`
+                        ) : (
+                          "No hay cuotas registradas en el sistema"
+                        )}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {currentItems.length > 0 ? (
-                      currentItems.map((student, index) => {
-                        const studentCuotas = cuotas.filter(
-                          (cuota) => cuota.student?._id === student._id
-                        );
-                        const lastCuota = studentCuotas.length > 0
-                          ? studentCuotas.reduce((latest, current) =>
-                              new Date(current.date) > new Date(latest.date) ? current : latest,
-                              studentCuotas[0]
-                            )
-                          : null;
-                        const cuotaStatus = lastCuota ? lastCuota.state : "Sin cuotas";
-
-                        return (
-                          <tr key={student._id}>
-                            <td>{indexOfFirstItem + index + 1}</td>
-                            <td>{student.name}</td>
-                            <td className="student-name">{student.lastName}</td>
-                            <td>{student.dni}</td>
-                            <td>{cuotaStatus}</td>
-                            <td className="action-buttons">
-                              <button
-                                className="action-btn-share"
-                                onClick={() => handleViewCuotas(student._id)}
-                              >
-                                <FaUserCircle />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr>
-                        <td colSpan="6" className="empty-table-message">
-                          {searchTerm ? (
-                            `No hay cuotas que coincidan con "${searchTerm}"`
-                          ) : statusFilter !== 'todos' ? (
-                            `No hay cuotas con estado "${statusFilter === 'sin cuotas' ? 'Sin cuotas' : statusFilter}"`
-                          ) : (
-                            "No hay cuotas registradas en el sistema"
-                          )}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                  )}
+                </tbody>
+              </table>
+            </div>
             <div className="pagination">
               <button
                 disabled={currentPage === 1}
