@@ -68,7 +68,7 @@ export const updateAttendance = async (req, res) => {
     endOfDay.setHours(23, 59, 59, 999);
 
     // Obtener el usuario actual desde el token o la solicitud
-    const currentUser = req.user?.name || 'Unknown'; // Ajusta según tu autenticación
+    const currentUser = req.user?.name || 'No Registrado'; // Ajusta según tu autenticación
 
     // Encontrar la asistencia existente
     const existingAttendance = await Attendance.findOne({ date: { $gte: startOfDay, $lte: endOfDay }, category });

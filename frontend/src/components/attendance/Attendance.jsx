@@ -233,7 +233,7 @@ const Attendance = () => {
               name: student.name,
               lastName: student.lastName,
               present: currentStatus === 'present',
-              createdBy: userData?.name || localStorage.getItem('authName') || 'Unknown'
+              createdBy: userData?.name || localStorage.getItem('authName') || 'No Registrado'
             };
           }
         }
@@ -588,7 +588,7 @@ const Attendance = () => {
                           a.attendance.some(att => att.idStudent === student._id)
                         );
                       });
-                      const createdBy = attendanceRecord?.attendance.find(att => att.idStudent === student._id)?.createdBy || 'Unknown';
+                      const createdBy = attendanceRecord?.attendance.find(att => att.idStudent === student._id)?.createdBy || 'No Registrado';
                       return (
                         <tr key={student._id}>
                           <td>{student.name} {student.lastName}</td>
