@@ -13,7 +13,6 @@ const SendVoucherEmail = ({ student, cuota, onSendingStart, onSendingEnd, onStud
     if (student && cuota && cuota.paymentdate && cuota.paymentmethod) {
       setIsDataReady(true);
     } else {
-      console.warn("Datos insuficientes para generar el comprobante:", { student, cuota });
       setIsDataReady(false);
     }
   }, [student, cuota]);

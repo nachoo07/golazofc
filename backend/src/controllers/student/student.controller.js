@@ -163,6 +163,51 @@ export const createStudent = async (req, res) => {
       category, mail, state, hasSiblingDiscount, profileImage, sure, league
     } = sanitize(req.body);
 
+    // Validar campos obligatorios
+    const missingFields = [];
+    if (!name) missingFields.push('Nombre');
+    if (!lastName) missingFields.push('Apellido');
+    if (!dni) missingFields.push('DNI');
+    if (!birthDate) missingFields.push('Fecha de Nacimiento');
+    if (!address) missingFields.push('Dirección');
+    if (!category) missingFields.push('Categoría');
+    if (missingFields.length > 0) {
+      logger.warn(`Faltan campos obligatorios: ${missingFields.join(', ')}`);
+      return res.status(400).json({ error: `Faltan datos obligatorios: ${missingFields.join(', ')}` });
+    }
+
+    // Validar formato de DNI
+    if (!/^\d{7,9}$/.test(dni)) {
+      logger.warn(`DNI inválido: ${dni}`);
+      return res.status(400).json({ error: 'El DNI debe contener entre 7 y 9 dígitos' });
+    }
+
+    // Validar si el DNI ya existe
+    const existingStudent = await Student.findOne({ dni });
+    if (existingStudent) {
+      logger.warn(`Intento de crear estudiante con DNI duplicado: ${dni}`);
+      return res.status(400).json({ error: 'El DNI ya está registrado' });
+    }
+
+    // Validar formato de fecha
+    const normalizedDate = normalizeDate(birthDate);
+    if (!normalizedDate) {
+      logger.warn(`Fecha de nacimiento inválida: ${birthDate}`);
+      return res.status(400).json({ error: 'Formato de fecha de nacimiento inválido' });
+    }
+
+    // Validar correo si está presente
+    if (mail && !/\S+@\S+\.\S+/.test(mail)) {
+      logger.warn(`Correo inválido: ${mail}`);
+      return res.status(400).json({ error: 'Formato de correo electrónico no válido' });
+    }
+
+    // Validar teléfono del tutor si está presente
+    if (guardianPhone && !/^\d{10,15}$/.test(guardianPhone)) {
+      logger.warn(`Teléfono del tutor inválido: ${guardianPhone}`);
+      return res.status(400).json({ error: 'El número de teléfono del tutor debe tener entre 10 y 15 dígitos' });
+    }
+
     let finalProfileImage = profileImage || 'https://i.pinimg.com/736x/24/f2/25/24f22516ec47facdc2dc114f8c3de7db.jpg';
     if (req.file) {
       try {
@@ -192,26 +237,6 @@ export const createStudent = async (req, res) => {
       }
     }
 
-    if (!name || !lastName || !dni || !birthDate || !address || !category ) {
-      const missingFields = [];
-      if (!name) missingFields.push('Nombre');
-      if (!lastName) missingFields.push('Apellido');
-      if (!dni) missingFields.push('DNI');
-      if (!birthDate) missingFields.push('Fecha de Nacimiento');
-      if (!address) missingFields.push('Dirección');
-      if (!category) missingFields.push('Categoría');
-      return res.status(400).json({ error: `Faltan datos obligatorios: ${missingFields.join(', ')}` });
-    }
-
-    if (!/^\d{8,10}$/.test(dni)) {
-      return res.status(400).json({ error: 'DNI debe contener entre 8 y 15 dígitos' });
-    }
-
-    const normalizedDate = normalizeDate(birthDate);
-    if (!normalizedDate) {
-      return res.status(400).json({ error: 'Formato de fecha de nacimiento inválido' });
-    }
-
     const newStudent = new Student({
       name,
       lastName,
@@ -234,8 +259,19 @@ export const createStudent = async (req, res) => {
     logger.info({ studentId: savedStudent._id }, 'Estudiante creado con éxito');
     res.status(201).json({ message: 'Estudiante creado exitosamente', student: savedStudent });
   } catch (error) {
-    logger.error({ error: error.message }, 'Error al crear estudiante');
-    res.status(500).json({ error: 'Error al crear estudiante' });
+    // Manejo de errores específicos
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(err => err.message);
+      logger.warn(`Errores de validación: ${errors.join(', ')}`);
+      return res.status(400).json({ error: `Errores de validación: ${errors.join(', ')}` });
+    }
+    if (error.code === 11000 && error.keyPattern.dni) {
+      logger.warn(`Intento de crear estudiante con DNI duplicado: ${req.body.dni}`);
+      return res.status(400).json({ error: 'El DNI ya está registrado' });
+    }
+    // Otros errores inesperados
+    logger.error({ error: error.message, stack: error.stack }, 'Error al crear estudiante');
+    res.status(500).json({ error: `Error interno al crear estudiante: ${error.message}` });
   }
 
 };
@@ -284,20 +320,78 @@ export const updateStudent = async (req, res) => {
       category, mail, state, hasSiblingDiscount, profileImage, sure, league
     } = sanitize(req.body);
 
-    if (!name || !lastName || !dni || !address || !category ) {
-      return res.status(400).json({ error: 'Faltan datos obligatorios' });
+    // Validar campos obligatorios
+    const missingFields = [];
+    if (!name) missingFields.push('Nombre');
+    if (!lastName) missingFields.push('Apellido');
+    if (!dni) missingFields.push('DNI');
+    if (!address) missingFields.push('Dirección');
+    if (!category) missingFields.push('Categoría');
+    if (missingFields.length > 0) {
+      logger.warn(`Faltan campos obligatorios: ${missingFields.join(', ')}`);
+      return res.status(400).json({ error: `Faltan datos obligatorios: ${missingFields.join(', ')}` });
     }
 
-    if (!/^\d{8,10}$/.test(dni)) {
-      return res.status(400).json({ error: 'El DNI debe contener entre 8 y 15 dígitos' });
+    // Validar formato de DNI
+    if (!/^\d{7,9}$/.test(dni)) {
+      logger.warn(`DNI inválido: ${dni}`);
+      return res.status(400).json({ error: 'El DNI debe contener entre 7 y 9 dígitos' });
     }
 
+    // Verificar si el estudiante existe
     const existingStudent = await Student.findById(id);
     if (!existingStudent) {
+      logger.warn(`Estudiante no encontrado: ${id}`);
       return res.status(404).json({ error: 'Estudiante no encontrado' });
     }
 
-    let finalProfileImage = existingStudent.profileImage || 'https://i.pinimg.com/736x/24/f2/25/24f22516ec47facdc2dc114f8c3de7db.jpg';
+    // Verificar si el DNI ya existe en otro estudiante
+    const duplicateStudent = await Student.findOne({ dni, _id: { $ne: id } });
+    if (duplicateStudent) {
+      logger.warn(`Intento de actualizar estudiante con DNI duplicado: ${dni}`);
+      return res.status(400).json({ error: 'El DNI ya está registrado en otro estudiante' });
+    }
+
+    // Inicializar updates al inicio
+    const updates = {
+      name,
+      lastName,
+      dni,
+      address,
+      guardianName,
+      guardianPhone,
+      category,
+      mail,
+      state,
+      profileImage: existingStudent.profileImage || 'https://i.pinimg.com/736x/24/f2/25/24f22516ec47facdc2dc114f8c3de7db.jpg',
+      hasSiblingDiscount,
+      sure,
+      league,
+    };
+
+    // Validar y actualizar birthDate si se proporciona
+    if (birthDate && birthDate !== format(existingStudent.birthDate, 'yyyy-MM-dd')) {
+      const normalizedDate = normalizeDate(birthDate);
+      if (!normalizedDate) {
+        logger.warn(`Fecha de nacimiento inválida: ${birthDate}`);
+        return res.status(400).json({ error: 'Formato de fecha de nacimiento inválido' });
+      }
+      updates.birthDate = createUTCDate(normalizedDate);
+    }
+
+    // Validar correo si está presente
+    if (mail && !/\S+@\S+\.\S+/.test(mail)) {
+      logger.warn(`Correo inválido: ${mail}`);
+      return res.status(400).json({ error: 'Formato de correo electrónico no válido' });
+    }
+
+    // Validar teléfono del tutor si está presente
+    if (guardianPhone && !/^\d{10,15}$/.test(guardianPhone)) {
+      logger.warn(`Teléfono del tutor inválido: ${guardianPhone}`);
+      return res.status(400).json({ error: 'El número de teléfono del tutor debe tener entre 10 y 15 dígitos' });
+    }
+
+    // Procesar imagen
     if (req.file || (profileImage && profileImage !== existingStudent.profileImage)) {
       try {
         if (existingStudent.profileImage && existingStudent.profileImage !== 'https://i.pinimg.com/736x/24/f2/25/24f22516ec47facdc2dc114f8c3de7db.jpg') {
@@ -309,22 +403,22 @@ export const updateStudent = async (req, res) => {
         }
 
         if (req.file) {
-          finalProfileImage = await uploadToCloudinary(
+          updates.profileImage = await uploadToCloudinary(
             { buffer: req.file.buffer, mimetype: req.file.mimetype },
             'students',
             `student_${dni}`
           );
-          logger.info(`Nueva imagen subida desde archivo para ID ${id}: ${finalProfileImage}`);
+          logger.info(`Nueva imagen subida desde archivo para ID ${id}: ${updates.profileImage}`);
         } else if (profileImage) {
           try {
             new URL(profileImage);
             const { buffer, mimetype } = await downloadImage(profileImage);
-            finalProfileImage = await uploadToCloudinary(
+            updates.profileImage = await uploadToCloudinary(
               { buffer, mimetype },
               'students',
               `student_${dni}`
             );
-            logger.info(`Nueva imagen subida desde URL para ID ${id}: ${finalProfileImage}`);
+            logger.info(`Nueva imagen subida desde URL para ID ${id}: ${updates.profileImage}`);
           } catch (error) {
             logger.error(`Error al procesar imagen URL para DNI ${dni}: ${error.message}`);
             return res.status(400).json({ error: `Error al procesar imagen: ${error.message}` });
@@ -336,37 +430,24 @@ export const updateStudent = async (req, res) => {
       }
     }
 
-    const updates = {
-      name,
-      lastName,
-      dni,
-      address,
-      guardianName,
-      guardianPhone,
-      category,
-      mail,
-      state,
-      profileImage: finalProfileImage,
-      hasSiblingDiscount,
-      sure,
-      league,
-    };
-
-    if (birthDate && birthDate !== format(existingStudent.birthDate, 'yyyy-MM-dd')) {
-      const normalizedDate = normalizeDate(birthDate);
-      if (!normalizedDate) {
-        return res.status(400).json({ error: 'Formato de fecha de nacimiento inválido' });
-      }
-      updates.birthDate = createUTCDate(normalizedDate);
-    }
-
+    // Actualizar estudiante
     const student = await Student.findByIdAndUpdate(id, { $set: updates }, { new: true }).lean();
 
     logger.info({ studentId: id }, 'Estudiante actualizado con éxito');
     res.status(200).json({ message: 'Estudiante actualizado exitosamente', student });
   } catch (error) {
-    logger.error({ error: error.message }, 'Error al actualizar estudiante');
-    res.status(500).json({ error: 'Error al actualizar estudiante' });
+    // Manejo de errores específicos
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(err => err.message);
+      logger.warn(`Errores de validación: ${errors.join(', ')}`);
+      return res.status(400).json({ error: `Errores de validación: ${errors.join(', ')}` });
+    }
+    if (error.code === 11000 && error.keyPattern.dni) {
+      logger.warn(`Intento de actualizar estudiante con DNI duplicado: ${req.body.dni}`);
+      return res.status(400).json({ error: 'El DNI ya está registrado en otro estudiante' });
+    }
+    logger.error({ error: error.message, stack: error.stack }, 'Error al actualizar estudiante');
+    res.status(500).json({ error: `Error interno al actualizar estudiante: ${error.message}` });
   }
 };
 
@@ -412,6 +493,7 @@ export const importStudents = async (req, res) => {
     const { students } = sanitize(req.body);
 
     if (!students || !Array.isArray(students) || students.length === 0) {
+      logger.warn('Lista de estudiantes inválida o vacía');
       return res.status(400).json({ message: 'Debe proporcionar una lista de estudiantes válida', success: false });
     }
 
@@ -422,25 +504,42 @@ export const importStudents = async (req, res) => {
     const processStudent = async (studentData) => {
       const {
         name, lastName, dni, birthDate, address, guardianName, guardianPhone,
-        category, mail, state, hasSiblingDiscount, profileImage, rowNumber, sure, league
+        category, mail, state, hasSiblingDiscount, profileImage, rowNumber
       } = sanitize(studentData);
 
       const row = rowNumber || 'Desconocida';
 
       // Validaciones iniciales
-      if (!name || !lastName || !dni || !birthDate || !address || !category ) {
-        errors.push(`Fila ${row}, DNI ${dni || 'desconocido'}: Faltan campos obligatorios`);
+      const missingFields = [];
+      if (!name) missingFields.push('Nombre');
+      if (!lastName) missingFields.push('Apellido');
+      if (!dni) missingFields.push('DNI');
+      if (!birthDate) missingFields.push('Fecha de Nacimiento');
+      if (!address) missingFields.push('Dirección');
+      if (!category) missingFields.push('Categoría');
+      if (missingFields.length > 0) {
+        errors.push(`Fila ${row}, DNI ${dni || 'desconocido'}: Faltan campos obligatorios: ${missingFields.join(', ')}`);
         return;
       }
 
-      if (!/^\d{8,10}$/.test(dni)) {
-        errors.push(`Fila ${row}, DNI ${dni}: DNI debe contener 8 a 10 dígitos`);
+      if (!/^\d{7,9}$/.test(dni)) {
+        errors.push(`Fila ${row}, DNI ${dni}: DNI debe contener 7 a 9 dígitos`);
         return;
       }
 
       const normalizedDate = normalizeDate(birthDate);
       if (!normalizedDate) {
         errors.push(`Fila ${row}, DNI ${dni}: Formato de fecha de nacimiento inválido`);
+        return;
+      }
+
+      if (mail && !/\S+@\S+\.\S+/.test(mail)) {
+        errors.push(`Fila ${row}, DNI ${dni}: Formato de correo electrónico no válido`);
+        return;
+      }
+
+      if (guardianPhone && !/^\d{10,15}$/.test(guardianPhone)) {
+        errors.push(`Fila ${row}, DNI ${dni}: El número de teléfono del tutor debe tener entre 10 y 15 dígitos`);
         return;
       }
 
@@ -484,15 +583,20 @@ export const importStudents = async (req, res) => {
           mail,
           state: state || 'Activo',
           profileImage: finalProfileImage,
-          hasSiblingDiscount,
-          sure,
-          league,
+          hasSiblingDiscount
         });
 
         const savedStudent = await newStudent.save();
         importedStudents.push(savedStudent);
       } catch (error) {
-        errors.push(`Fila ${row}, DNI ${dni}: ${error.message}`);
+        if (error.name === 'ValidationError') {
+          const errorMessages = Object.values(error.errors).map(err => err.message);
+          errors.push(`Fila ${row}, DNI ${dni}: Errores de validación - ${errorMessages.join(', ')}`);
+        } else if (error.code === 11000 && error.keyPattern.dni) {
+          errors.push(`Fila ${row}, DNI ${dni}: DNI ya existe`);
+        } else {
+          errors.push(`Fila ${row}, DNI ${dni}: Error al guardar estudiante - ${error.message}`);
+        }
       }
     };
 

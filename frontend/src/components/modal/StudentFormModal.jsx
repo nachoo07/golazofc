@@ -64,16 +64,7 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
   const onSubmit = (e) => {
     e.preventDefault();
     // Validación para asegurar que sure y league tengan un valor válido
- if (!localFormData.sure || !['Si', 'No'].includes(localFormData.sure)) {
-      setAlertMessage('Debe seleccionar una opción para "Seguro".');
-      setShowAlert(true);
-      return;
-    }
-    if (!localFormData.league || !['Si', 'No'].includes(localFormData.league)) {
-      setAlertMessage('Debe seleccionar una opción para "Liga".');
-      setShowAlert(true);
-      return;
-    }
+
     // Validación de DNI (7-9 dígitos)
     if (localFormData.dni && !/^\d{7,9}$/.test(localFormData.dni)) {
       setAlertMessage('El DNI debe contener entre 7 y 9 dígitos.');
@@ -246,12 +237,11 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
               name="sure"
               value={localFormData.sure || ''}
               onChange={handleInputChange}
-              required
               className="form-control-custom"
             >
-              <option value="" disabled>Seleccione una opción</option>
+              <option value="">No especificado</option>
+              <option value="Si">Sí</option>
               <option value="No">No</option>
-              <option value="Si">Si</option>
             </Form.Select>
           </Form.Group>
           <Form.Group controlId="formLeague" className="studentFormModal-form-group">
@@ -260,12 +250,11 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
               name="league"
               value={localFormData.league || ''}
               onChange={handleInputChange}
-              required
               className="form-control-custom"
             >
-              <option value="" disabled>Seleccione una opción</option>
+              <option value="">No especificado</option>
+              <option value="Si">Sí</option>
               <option value="No">No</option>
-              <option value="Si">Si</option>
             </Form.Select>
           </Form.Group>
           <Form.Group controlId="formHasSiblingDiscount" className="studentFormModal-checkbox-group">

@@ -1,6 +1,6 @@
 import { useState, useContext, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaSearch, FaDownload,FaList, FaFilePdf, FaBars, FaTimes, FaClipboardList, FaUserCircle, FaChevronDown, FaHome, FaUsers, FaMoneyBill, FaChartBar, FaExchangeAlt, FaCalendarCheck, FaUserCog, FaCog, FaEnvelope, FaArrowLeft } from 'react-icons/fa';
+import { FaSearch, FaDownload, FaList, FaFilePdf, FaBars, FaTimes, FaClipboardList, FaUserCircle, FaChevronDown, FaHome, FaUsers, FaMoneyBill, FaChartBar, FaExchangeAlt, FaCalendarCheck, FaUserCog, FaCog, FaEnvelope, FaArrowLeft } from 'react-icons/fa';
 import { StudentsContext } from '../../context/student/StudentContext';
 import { PaymentContext } from '../../context/payment/PaymentContext';
 import { LoginContext } from '../../context/login/LoginContext';
@@ -18,8 +18,9 @@ const ListStudent = () => {
   const { auth, logout, userData } = useContext(LoginContext);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [clubFilter, setClubFilter] = useState(''); // Nuevo estado para el filtro de club
+  const [clubFilter, setClubFilter] = useState(''); // Estado existente para club
   const [conceptFilter, setConceptFilter] = useState('');
+  const [optionFilter, setOptionFilter] = useState(''); // Liga o Seguro
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [isMenuOpen, setIsMenuOpen] = useState(true);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -95,11 +96,12 @@ const ListStudent = () => {
         });
       }
 
+      // No filtrar por "Sí", solo aplicar otros filtros
       setFilteredStudents(filtered);
     };
 
     filterStudents();
-  }, [searchTerm, categoryFilter, estudiantes]); // Añadimos clubFilter como dependencia
+  }, [searchTerm, categoryFilter, estudiantes]);
 
   const formatDate = (date) => {
     const d = new Date(date);
@@ -115,140 +117,153 @@ const ListStudent = () => {
   };
 
   const handleDownloadExcel = () => {
-  const excelData = filteredStudents.map((student) => {
-    const payment = conceptFilter ? getPaymentByConcept(student._id, conceptFilter) : null;
-    return {
-      'Nombre Completo': `${student.name} ${student.lastName}`,
-      DNI: student.dni,
-      'Fecha de Nacimiento': formatDate(student.birthDate),
-      ...(conceptFilter && {
-        Concepto: conceptFilter.charAt(0).toUpperCase() + conceptFilter.slice(1),
-        Monto: payment ? payment.amount : 'Pendiente',
-      }),
+    const excelData = filteredStudents.map((student) => {
+      const payment = conceptFilter ? getPaymentByConcept(student._id, conceptFilter) : null;
+      return {
+        'Nombre Completo': `${student.name} ${student.lastName}`,
+        DNI: student.dni,
+        'Fecha de Nacimiento': formatDate(student.birthDate),
+        ...(optionFilter && { [optionFilter]: normalizeStatus(student[optionFilter.toLowerCase()]) }),
+        ...(conceptFilter && {
+          Concepto: conceptFilter.charAt(0).toUpperCase() + conceptFilter.slice(1),
+          Monto: payment ? payment.amount : 'Pendiente',
+        }),
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(excelData);
+
+    // Definir estilos
+    const headerStyle = {
+      font: {
+        name: 'Arial',
+        sz: 14,
+        bold: true,
+        color: { rgb: 'FFFFFF' }, // Texto blanco
+      },
+      fill: {
+        fgColor: { rgb: 'e31fa8' }, // Fondo #e31fa8
+        patternType: 'solid',
+      },
+      border: {
+        top: { style: 'thin', color: { rgb: '000000' } },
+        bottom: { style: 'thin', color: { rgb: '000000' } },
+        left: { style: 'thin', color: { rgb: '000000' } },
+        right: { style: 'thin', color: { rgb: '000000' } },
+      },
+      alignment: {
+        horizontal: 'center',
+        vertical: 'center',
+        wrapText: true,
+      },
     };
-  });
 
-  const ws = XLSX.utils.json_to_sheet(excelData);
+    const cellStyle = {
+      border: {
+        top: { style: 'thin', color: { rgb: '000000' } },
+        bottom: { style: 'thin', color: { rgb: '000000' } },
+        left: { style: 'thin', color: { rgb: '000000' } },
+        right: { style: 'thin', color: { rgb: '000000' } },
+      },
+      font: {
+        name: 'Arial',
+        sz: 12,
+      },
+      alignment: {
+        horizontal: 'left',
+        vertical: 'center',
+        wrapText: true,
+      },
+    };
 
-  // Definir estilos
-  const headerStyle = {
-    font: {
-      name: 'Arial',
-      sz: 14,
-      bold: true,
-      color: { rgb: 'FFFFFF' }, // Texto blanco
-    },
-    fill: {
-      fgColor: { rgb: 'e31fa8' }, // Fondo #e31fa8
-      patternType: 'solid',
-    },
-    border: {
-      top: { style: 'thin', color: { rgb: '000000' } },
-      bottom: { style: 'thin', color: { rgb: '000000' } },
-      left: { style: 'thin', color: { rgb: '000000' } },
-      right: { style: 'thin', color: { rgb: '000000' } },
-    },
-    alignment: {
-      horizontal: 'center',
-      vertical: 'center',
-      wrapText: true,
-    },
-  };
+    // Aplicar estilos a los encabezados
+    const headers = ['Nombre Completo', 'DNI', 'Fecha de Nacimiento', ...(optionFilter ? [optionFilter] : []), ...(conceptFilter ? ['Concepto', 'Monto'] : [])];
+    headers.forEach((header, index) => {
+      const cellRef = XLSX.utils.encode_cell({ r: 0, c: index });
+      ws[cellRef].s = headerStyle;
+    });
 
-  const cellStyle = {
-    border: {
-      top: { style: 'thin', color: { rgb: '000000' } },
-      bottom: { style: 'thin', color: { rgb: '000000' } },
-      left: { style: 'thin', color: { rgb: '000000' } },
-      right: { style: 'thin', color: { rgb: '000000' } },
-    },
-    font: {
-      name: 'Arial',
-      sz: 12,
-    },
-    alignment: {
-      horizontal: 'left',
-      vertical: 'center',
-      wrapText: true,
-    },
-  };
-
-  // Aplicar estilos a los encabezados
-  const headers = ['Nombre Completo', 'DNI', 'Fecha de Nacimiento', ...(conceptFilter ? ['Concepto', 'Monto'] : [])];
-  headers.forEach((header, index) => {
-    const cellRef = XLSX.utils.encode_cell({ r: 0, c: index });
-    ws[cellRef].s = headerStyle;
-  });
-
-  // Aplicar estilos a las celdas de datos y formato de moneda a "Monto"
-  const range = XLSX.utils.decode_range(ws['!ref']);
-  for (let row = 1; row <= range.e.r; row++) {
-    for (let col = 0; col <= range.e.c; col++) {
-      const cellRef = XLSX.utils.encode_cell({ r: row, c: col });
-      if (!ws[cellRef]) continue; // Saltar celdas vacías
-      ws[cellRef].s = cellStyle;
-      if (conceptFilter && col === headers.indexOf('Monto')) {
-        ws[cellRef].z = ws[cellRef].v === 'Pendiente' ? undefined : '$#,##0'; // Formato de moneda
+    // Aplicar estilos a las celdas de datos y formato de moneda a "Monto"
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let row = 1; row <= range.e.r; row++) {
+      for (let col = 0; col <= range.e.c; col++) {
+        const cellRef = XLSX.utils.encode_cell({ r: row, c: col });
+        if (!ws[cellRef]) continue; // Saltar celdas vacías
+        ws[cellRef].s = cellStyle;
+        if (conceptFilter && col === headers.indexOf('Monto')) {
+          ws[cellRef].z = ws[cellRef].v === 'Pendiente' ? undefined : '$#,##0'; // Formato de moneda
+        }
       }
     }
-  }
 
-  // Ajustar ancho de columnas
-  ws['!cols'] = [
-    { wch: 40 }, // Nombre Completo
-    { wch: 20 }, // DNI
-    { wch: 35 }, // Fecha de Nacimiento
-    ...(conceptFilter ? [{ wch: 30 }, { wch: 20 }] : []), // Concepto y Monto
-  ];
+    // Ajustar ancho de columnas
+    ws['!cols'] = [
+      { wch: 40 }, // Nombre Completo
+      { wch: 20 }, // DNI
+      { wch: 35 }, // Fecha de Nacimiento
+      ...(optionFilter ? [{ wch: 15 }] : []), // Liga o Seguro
+      ...(conceptFilter ? [{ wch: 30 }, { wch: 20 }] : []), // Concepto y Monto
+    ];
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Alumnos_Pagos');
-  XLSX.writeFile(wb, 'Lista_Alumnos_Pagos.xlsx');
-};
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Alumnos_Pagos');
+    XLSX.writeFile(wb, 'Lista_Alumnos_Pagos.xlsx');
+  };
 
   const handleDownloadPDF = () => {
-  const doc = new jsPDF(); // Por defecto es vertical (portrait)
-  doc.setFontSize(16);
-  doc.text('Lista de Alumnos con Pagos', 14, 20);
+    const doc = new jsPDF(); // Por defecto es vertical (portrait)
+    doc.setFontSize(16);
+    doc.text('Lista de Alumnos con Pagos', 14, 20);
 
-  const tableData = filteredStudents.map((student, index) => {
-    const payment = conceptFilter ? getPaymentByConcept(student._id, conceptFilter) : null;
-    return [
-      index + 1,
-      `${student.name} ${student.lastName}`,
-      student.dni,
-      formatDate(student.birthDate),
-      ...(conceptFilter
-        ? [
-            conceptFilter.charAt(0).toUpperCase() + conceptFilter.slice(1), // Nombre del concepto
-            payment ? `$${payment.amount.toLocaleString('es-ES')}` : 'Pendiente', // Monto o Pendiente
-          ]
-        : []),
-    ];
-  });
+    const tableData = filteredStudents.map((student, index) => {
+      const payment = conceptFilter ? getPaymentByConcept(student._id, conceptFilter) : null;
+      return [
+        index + 1,
+        `${student.name} ${student.lastName}`,
+        student.dni,
+        formatDate(student.birthDate),
+        ...(optionFilter ? [normalizeStatus(student[optionFilter.toLowerCase()])] : []),
+        ...(conceptFilter
+          ? [
+              conceptFilter.charAt(0).toUpperCase() + conceptFilter.slice(1), // Nombre del concepto
+              payment ? `$${payment.amount.toLocaleString('es-ES')}` : 'Pendiente', // Monto o Pendiente
+            ]
+          : []),
+      ];
+    });
 
-  const headers = ['#', 'Nombre Completo', 'DNI', 'Fecha de Nacimiento', ...(conceptFilter ? ['Concepto', 'Monto'] : [])];
-  autoTable(doc, {
-    head: [headers],
-    body: tableData,
-    startY: 30,
-    margin: { top: 20 },
-    styles: { fontSize: 10, cellPadding: 2 },
-    headStyles: {
-      fillColor: [227, 31, 168], // RGB para #e31fa8
-      textColor: [255, 255, 255],
-      fontStyle: 'bold',
-    },
-    alternateRowStyles: { fillColor: [240, 240, 240] },
-    tableWidth: 'auto', // o '100%'
-  });
+    const headers = ['#', 'Nombre Completo', 'DNI', 'Fecha de Nacimiento', ...(optionFilter ? [optionFilter] : []), ...(conceptFilter ? ['Concepto', 'Monto'] : [])];
+    autoTable(doc, {
+      head: [headers],
+      body: tableData,
+      startY: 30,
+      margin: { top: 20 },
+      styles: { fontSize: 10, cellPadding: 2 },
+      headStyles: {
+        fillColor: [227, 31, 168], // RGB para #e31fa8
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+      },
+      alternateRowStyles: { fillColor: [240, 240, 240] },
+      tableWidth: 'auto', // o '100%'
+    });
 
-  doc.save('ListaAlumnosPagos.pdf');
-};
+    doc.save('ListaAlumnosPagos.pdf');
+  };
+
   const handleLogout = async () => {
     logout();
     navigate('/login');
     setIsMenuOpen(false);
+  };
+
+  // Función para normalizar el estado (insensible a mayúsculas/minúsculas y tildes)
+  const normalizeStatus = (value) => {
+    if (value === undefined || value === null || value === '') return '-';
+    const normalizedValue = String(value).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // Elimina tildes
+    if (normalizedValue === 'Si') return 'Si';
+    if (normalizedValue === 'no') return 'No';
+    return '-';
   };
 
   // Obtener años de nacimiento únicos para el filtro de categoría
@@ -368,6 +383,15 @@ const ListStudent = () => {
                     <option key={year} value={year}>{year}</option>
                   ))}
                 </select>
+                <select
+                  value={optionFilter}
+                  onChange={(e) => setOptionFilter(e.target.value)}
+                  className="filter-select-list"
+                >
+                  <option value="">Seleccionar opción</option>
+                  <option value="Liga">Liga</option>
+                  <option value="Seguro">Seguro</option>
+                </select>
               </div>
               <div className="concept-filters">
                 <select
@@ -402,6 +426,7 @@ const ListStudent = () => {
                     <th>Nombre Completo</th>
                     <th>DNI</th>
                     <th>Fecha de Nacimiento</th>
+                    {optionFilter && <th>{optionFilter}</th>}
                     {conceptFilter && (
                       <>
                         <th>Concepto</th>
@@ -414,12 +439,17 @@ const ListStudent = () => {
                   {filteredStudents.length > 0 ? (
                     filteredStudents.map((student, index) => {
                       const payment = conceptFilter ? getPaymentByConcept(student._id, conceptFilter) : null;
+                      const statusKey = optionFilter.toLowerCase();
+                      const statusValue = student[statusKey];
                       return (
                         <tr key={student._id}>
                           <td>{index + 1}</td>
                           <td>{`${student.name} ${student.lastName}`}</td>
                           <td>{student.dni}</td>
                           <td>{formatDate(student.birthDate)}</td>
+                          {optionFilter && (
+                            <td>{normalizeStatus(student[optionFilter.toLowerCase()])}</td>
+                          )}
                           {conceptFilter && (
                             <>
                               <td>{conceptFilter}</td>
@@ -431,7 +461,7 @@ const ListStudent = () => {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={conceptFilter ? 7 : 5} className="empty-table-message">
+                      <td colSpan={conceptFilter ? (optionFilter ? 7 : 5) : (optionFilter ? 5 : 4)} className="empty-table-message">
                         No se encontraron alumnos con los filtros aplicados.
                       </td>
                     </tr>

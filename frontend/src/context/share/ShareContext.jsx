@@ -25,7 +25,6 @@ const SharesProvider = ({ children }) => {
         params: { all: true }
       });
       const data = Array.isArray(response.data) ? response.data : [];
-      console.log("Cuotas obtenidas:", data); // Log para depuración
       setCuotas(data);
     } catch (error) {
       console.error("Error obteniendo cuotas:", error);
@@ -41,7 +40,6 @@ const SharesProvider = ({ children }) => {
       const response = await axios.get("/api/shares/status-count", {
         withCredentials: true,
       });
-      console.log("Conteo de estados:", response.data); // Log para depuración
       setCuotasStatusCount({
         pendientes: response.data.pendientes || 0,
         vencidas: response.data.vencidas || 0,

@@ -14,7 +14,6 @@ const SendPaymentVoucherEmail = ({ student, payment, onSendingStart, onSendingEn
     if (student && payment && payment.paymentDate && payment.paymentMethod && payment.concept) {
       setIsDataReady(true);
     } else {
-      console.warn("Datos insuficientes para generar el comprobante de pago:", { student, payment });
       setIsDataReady(false);
     }
   }, [student, payment]);

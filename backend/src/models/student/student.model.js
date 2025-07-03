@@ -72,15 +72,17 @@ const studentSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
-  league: {
+league: {
     type: String,
-    enum: ['Si', 'No'],
-    default: ""
+    enum: ['Si', 'No'], // Mantenemos el enum para valores válidos
+    required: false,    // No es obligatorio
+    default: null,      // Valor por defecto nulo
   },
   sure: {
     type: String,
-    enum: ['Si', 'No'],
-    default: ""
+    enum: ['Si', 'No'], // Mantenemos el enum para valores válidos
+    required: false,    // No es obligatorio
+    default: null,      // Valor por defecto nulo
   },
 
 }, {

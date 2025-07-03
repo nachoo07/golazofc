@@ -10,17 +10,24 @@ const router = express.Router();
 const validateStudent = [
   body('name').notEmpty().withMessage('Nombre es obligatorio'),
   body('lastName').notEmpty().withMessage('Apellido es obligatorio'),
-  body('dni').matches(/^\d{8,10}$/).withMessage('DNI debe tener entre 8 y 10 dígitos'),
-  body('birthDate').notEmpty().isDate().withMessage('Fecha de nacimiento válida es obligatoria'),
+  body('dni').matches(/^\d{7,9}$/).withMessage('DNI debe tener entre 7 y 9 dígitos'),
+  body('birthDate').notEmpty().withMessage('Fecha de nacimiento es obligatoria'),
   body('address').notEmpty().withMessage('Dirección es obligatoria'),
   body('category').notEmpty().withMessage('Categoría es obligatoria'),
   body('mail').optional().isEmail().withMessage('Email debe ser válido'),
-
   body('guardianName').optional().notEmpty().withMessage('Nombre del tutor es obligatorio'),
   body('guardianPhone').optional().matches(/^\d{10,15}$/).withMessage('El número de teléfono del tutor debe tener entre 10 y 15 dígitos'),
   body('hasSiblingDiscount').optional().isBoolean().withMessage('Descuento por hermano debe ser un booleano'),
-body('sure').optional().isIn(['Si', 'No']).withMessage('El campo "sure" debe ser "Si" o "No"'),
-body('league').optional().isIn(['Si', 'No']).withMessage('El campo "league" debe ser "Si" o "No"'),
+  body('sure').optional().custom((value, { req }) => {
+    if (value === undefined || value === null) return true; // Permitir null o ausencia
+    if (['Si', 'No'].includes(value)) return true;
+    throw new Error('El campo "sure" debe ser "Si" o "No"');
+  }),
+  body('league').optional().custom((value, { req }) => {
+    if (value === undefined || value === null) return true; // Permitir null o ausencia
+    if (['Si', 'No'].includes(value)) return true;
+    throw new Error('El campo "league" debe ser "Si" o "No"');
+  }),
 ];
 // Rutas protegidas
 router.post('/create', upload.single('profileImageFile'), validateStudent, protect, admin, createStudent);
@@ -35,7 +42,7 @@ router.post('/import', protect, admin, [
   body('students.*').isObject().withMessage('Cada estudiante debe ser un objeto'),
   body('students.*.name').notEmpty().withMessage('Nombre es obligatorio'),
   body('students.*.lastName').notEmpty().withMessage('Apellido es obligatorio'),
-  body('students.*.dni').matches(/^\d{8,10}$/).withMessage('DNI debe tener entre 8 y 10 dígitos'),
+  body('students.*.dni').matches(/^\d{7,9}$/).withMessage('DNI debe tener entre 8 y 10 dígitos'),
   body('students.*.birthDate').notEmpty().isDate().withMessage('Fecha de nacimiento válida es obligatoria'),
   body('students.*.address').notEmpty().withMessage('Dirección es obligatoria'),
   body('students.*.category').notEmpty().withMessage('Categoría es obligatoria'),

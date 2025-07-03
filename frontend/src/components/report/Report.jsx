@@ -1,6 +1,6 @@
 import { useState, useContext, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaBars, FaTimes, FaUsers, FaMoneyBill, FaChartBar, FaExchangeAlt, FaCalendarCheck, FaUserCog, FaCog, FaEnvelope, FaHome, FaClipboardList, FaUserCircle, FaChevronDown, FaSpinner } from 'react-icons/fa';
+import { FaBars, FaTimes, FaUsers, FaMoneyBill, FaChartBar, FaExchangeAlt, FaList, FaCalendarCheck, FaUserCog, FaCog, FaEnvelope, FaHome, FaClipboardList, FaUserCircle, FaChevronDown, FaSpinner } from 'react-icons/fa';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -42,6 +42,7 @@ const Report = () => {
     { name: 'Ajustes', route: '/settings', icon: <FaCog />, category: 'configuracion' },
     { name: 'Envios de Mail', route: '/email-notifications', icon: <FaEnvelope />, category: 'comunicacion' },
     { name: 'Listado de Alumnos', route: '/liststudent', icon: <FaClipboardList />, category: 'informes' },
+        { name: 'Lista de Movimientos', route: '/listeconomic', icon: <FaList />, category: 'finanzas' }
   ];
 
   const activos = countStudentsByState('Activo') || 0;
