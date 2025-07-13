@@ -330,7 +330,6 @@ const Share = () => {
                         )
                         : null;
                       const cuotaStatus = lastCuota ? lastCuota.state : "Sin cuotas";
-                      console.log(`Estudiante: ${student.name} ${student.lastName}, Cuotas: ${studentCuotas.length}, Última cuota: ${lastCuota?.state || 'N/A'}`);
                       return (
                         <tr key={student._id}>
                           <td>{indexOfFirstItem + index + 1}</td>

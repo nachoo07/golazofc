@@ -73,35 +73,33 @@ const ListStudent = () => {
   }, [fetchConcepts]);
 
   useEffect(() => {
-    const filterStudents = () => {
-      let filtered = [...estudiantes];
 
-      // Filtro por búsqueda (nombre, apellido o DNI)
-      if (searchTerm) {
-        const searchNormalized = searchTerm.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        filtered = filtered.filter((student) => {
-          const nameNormalized = student.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-          const lastNameNormalized = student.lastName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-          const fullName = `${nameNormalized} ${lastNameNormalized}`;
-          const dniSearch = student.dni?.toLowerCase().includes(searchNormalized);
-          return fullName.includes(searchNormalized) || dniSearch;
-        });
-      }
+  const filterStudents = () => {
+    let filtered = [...estudiantes];
 
-      // Filtro por categoría (año de nacimiento)
-      if (categoryFilter) {
-        filtered = filtered.filter((student) => {
-          const birthYear = new Date(student.birthDate).getFullYear();
-          return birthYear === parseInt(categoryFilter);
-        });
-      }
+    if (searchTerm) {
+      const searchNormalized = searchTerm.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      filtered = filtered.filter((student) => {
+        const nameNormalized = student.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const lastNameNormalized = student.lastName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const fullName = `${nameNormalized} ${lastNameNormalized}`;
+        const dniSearch = student.dni?.toLowerCase().includes(searchNormalized);
+        return fullName.includes(searchNormalized) || dniSearch;
+      });
+    }
 
-      // No filtrar por "Sí", solo aplicar otros filtros
-      setFilteredStudents(filtered);
-    };
+    if (categoryFilter) {
+      filtered = filtered.filter((student) => {
+        const birthYear = new Date(student.birthDate).getFullYear();
+        return birthYear === parseInt(categoryFilter);
+      });
+    }
 
-    filterStudents();
-  }, [searchTerm, categoryFilter, estudiantes]);
+    setFilteredStudents(filtered);
+  };
+
+  filterStudents();
+}, [searchTerm, categoryFilter, estudiantes, optionFilter]); // Agregar optionFilter como dependencia
 
   const formatDate = (date) => {
     const d = new Date(date);
@@ -117,139 +115,132 @@ const ListStudent = () => {
   };
 
   const handleDownloadExcel = () => {
-    const excelData = filteredStudents.map((student) => {
-      const payment = conceptFilter ? getPaymentByConcept(student._id, conceptFilter) : null;
-      return {
-        'Nombre Completo': `${student.name} ${student.lastName}`,
-        DNI: student.dni,
-        'Fecha de Nacimiento': formatDate(student.birthDate),
-        ...(optionFilter && { [optionFilter]: normalizeStatus(student[optionFilter.toLowerCase()]) }),
-        ...(conceptFilter && {
-          Concepto: conceptFilter.charAt(0).toUpperCase() + conceptFilter.slice(1),
-          Monto: payment ? payment.amount : 'Pendiente',
-        }),
-      };
-    });
-
-    const ws = XLSX.utils.json_to_sheet(excelData);
-
-    // Definir estilos
-    const headerStyle = {
-      font: {
-        name: 'Arial',
-        sz: 14,
-        bold: true,
-        color: { rgb: 'FFFFFF' }, // Texto blanco
-      },
-      fill: {
-        fgColor: { rgb: 'e31fa8' }, // Fondo #e31fa8
-        patternType: 'solid',
-      },
-      border: {
-        top: { style: 'thin', color: { rgb: '000000' } },
-        bottom: { style: 'thin', color: { rgb: '000000' } },
-        left: { style: 'thin', color: { rgb: '000000' } },
-        right: { style: 'thin', color: { rgb: '000000' } },
-      },
-      alignment: {
-        horizontal: 'center',
-        vertical: 'center',
-        wrapText: true,
-      },
+  const excelData = filteredStudents.map((student) => {
+    const payment = conceptFilter ? getPaymentByConcept(student._id, conceptFilter) : null;
+    let statusValue;
+    if (optionFilter === "Liga") {
+      statusValue = student.league;
+    } else if (optionFilter === "Seguro") {
+      statusValue = student.sure;
+    }
+    return {
+      'Nombre Completo': `${student.name} ${student.lastName}`,
+      DNI: student.dni,
+      'Fecha de Nacimiento': formatDate(student.birthDate),
+      ...(optionFilter && { [optionFilter]: normalizeStatus(statusValue) }),
+      ...(conceptFilter && {
+        Concepto: conceptFilter.charAt(0).toUpperCase() + conceptFilter.slice(1),
+        Monto: payment ? payment.amount : 'Pendiente',
+      }),
     };
+  });
 
-    const cellStyle = {
-      border: {
-        top: { style: 'thin', color: { rgb: '000000' } },
-        bottom: { style: 'thin', color: { rgb: '000000' } },
-        left: { style: 'thin', color: { rgb: '000000' } },
-        right: { style: 'thin', color: { rgb: '000000' } },
-      },
-      font: {
-        name: 'Arial',
-        sz: 12,
-      },
-      alignment: {
-        horizontal: 'left',
-        vertical: 'center',
-        wrapText: true,
-      },
-    };
+  const ws = XLSX.utils.json_to_sheet(excelData);
 
-    // Aplicar estilos a los encabezados
-    const headers = ['Nombre Completo', 'DNI', 'Fecha de Nacimiento', ...(optionFilter ? [optionFilter] : []), ...(conceptFilter ? ['Concepto', 'Monto'] : [])];
-    headers.forEach((header, index) => {
-      const cellRef = XLSX.utils.encode_cell({ r: 0, c: index });
-      ws[cellRef].s = headerStyle;
-    });
+  // Definir estilos (mantenemos los estilos existentes)
+  const headerStyle = {
+    font: { name: 'Arial', sz: 14, bold: true, color: { rgb: 'FFFFFF' } },
+    fill: { fgColor: { rgb: 'e31fa8' }, patternType: 'solid' },
+    border: {
+      top: { style: 'thin', color: { rgb: '000000' } },
+      bottom: { style: 'thin', color: { rgb: '000000' } },
+      left: { style: 'thin', color: { rgb: '000000' } },
+      right: { style: 'thin', color: { rgb: '000000' } },
+    },
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+  };
 
-    // Aplicar estilos a las celdas de datos y formato de moneda a "Monto"
-    const range = XLSX.utils.decode_range(ws['!ref']);
-    for (let row = 1; row <= range.e.r; row++) {
-      for (let col = 0; col <= range.e.c; col++) {
-        const cellRef = XLSX.utils.encode_cell({ r: row, c: col });
-        if (!ws[cellRef]) continue; // Saltar celdas vacías
-        ws[cellRef].s = cellStyle;
-        if (conceptFilter && col === headers.indexOf('Monto')) {
-          ws[cellRef].z = ws[cellRef].v === 'Pendiente' ? undefined : '$#,##0'; // Formato de moneda
-        }
+  const cellStyle = {
+    border: {
+      top: { style: 'thin', color: { rgb: '000000' } },
+      bottom: { style: 'thin', color: { rgb: '000000' } },
+      left: { style: 'thin', color: { rgb: '000000' } },
+      right: { style: 'thin', color: { rgb: '000000' } },
+    },
+    font: { name: 'Arial', sz: 12 },
+    alignment: { horizontal: 'left', vertical: 'center', wrapText: true },
+  };
+
+  // Aplicar estilos a los encabezados
+  const headers = ['Nombre Completo', 'DNI', 'Fecha de Nacimiento', ...(optionFilter ? [optionFilter] : []), ...(conceptFilter ? ['Concepto', 'Monto'] : [])];
+  headers.forEach((header, index) => {
+    const cellRef = XLSX.utils.encode_cell({ r: 0, c: index });
+    ws[cellRef].s = headerStyle;
+  });
+
+  // Aplicar estilos a las celdas de datos y formato de moneda a "Monto"
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let row = 1; row <= range.e.r; row++) {
+    for (let col = 0; col <= range.e.c; col++) {
+      const cellRef = XLSX.utils.encode_cell({ r: row, c: col });
+      if (!ws[cellRef]) continue;
+      ws[cellRef].s = cellStyle;
+      if (conceptFilter && col === headers.indexOf('Monto')) {
+        ws[cellRef].z = ws[cellRef].v === 'Pendiente' ? undefined : '$#,##0';
       }
     }
+  }
 
-    // Ajustar ancho de columnas
-    ws['!cols'] = [
-      { wch: 40 }, // Nombre Completo
-      { wch: 20 }, // DNI
-      { wch: 35 }, // Fecha de Nacimiento
-      ...(optionFilter ? [{ wch: 15 }] : []), // Liga o Seguro
-      ...(conceptFilter ? [{ wch: 30 }, { wch: 20 }] : []), // Concepto y Monto
-    ];
+  // Ajustar ancho de columnas
+  ws['!cols'] = [
+    { wch: 40 }, // Nombre Completo
+    { wch: 20 }, // DNI
+    { wch: 35 }, // Fecha de Nacimiento
+    ...(optionFilter ? [{ wch: 15 }] : []), // Liga o Seguro
+    ...(conceptFilter ? [{ wch: 30 }, { wch: 20 }] : []), // Concepto y Monto
+  ];
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Alumnos_Pagos');
-    XLSX.writeFile(wb, 'Lista_Alumnos_Pagos.xlsx');
-  };
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Alumnos_Pagos');
+  XLSX.writeFile(wb, 'Lista_Alumnos_Pagos.xlsx');
+};
 
   const handleDownloadPDF = () => {
-    const doc = new jsPDF(); // Por defecto es vertical (portrait)
-    doc.setFontSize(16);
-    doc.text('Lista de Alumnos con Pagos', 14, 20);
+  const doc = new jsPDF(); // Por defecto es vertical (portrait)
+  doc.setFontSize(16);
+  doc.text('Lista de Alumnos con Pagos', 14, 20);
 
-    const tableData = filteredStudents.map((student, index) => {
-      const payment = conceptFilter ? getPaymentByConcept(student._id, conceptFilter) : null;
-      return [
-        index + 1,
-        `${student.name} ${student.lastName}`,
-        student.dni,
-        formatDate(student.birthDate),
-        ...(optionFilter ? [normalizeStatus(student[optionFilter.toLowerCase()])] : []),
-        ...(conceptFilter
-          ? [
-              conceptFilter.charAt(0).toUpperCase() + conceptFilter.slice(1), // Nombre del concepto
-              payment ? `$${payment.amount.toLocaleString('es-ES')}` : 'Pendiente', // Monto o Pendiente
-            ]
-          : []),
-      ];
-    });
+  const tableData = filteredStudents.map((student, index) => {
+    const payment = conceptFilter ? getPaymentByConcept(student._id, conceptFilter) : null;
+    let statusValue;
+    if (optionFilter === "Liga") {
+      statusValue = student.league;
+    } else if (optionFilter === "Seguro") {
+      statusValue = student.sure;
+    }
+    return [
+      index + 1,
+      `${student.name} ${student.lastName}`,
+      student.dni,
+      formatDate(student.birthDate),
+      ...(optionFilter ? [normalizeStatus(statusValue)] : []),
+      ...(conceptFilter
+        ? [
+            conceptFilter.charAt(0).toUpperCase() + conceptFilter.slice(1),
+            payment ? `$${payment.amount.toLocaleString('es-ES')}` : 'Pendiente',
+          ]
+        : []),
+    ];
+  });
 
-    const headers = ['#', 'Nombre Completo', 'DNI', 'Fecha de Nacimiento', ...(optionFilter ? [optionFilter] : []), ...(conceptFilter ? ['Concepto', 'Monto'] : [])];
-    autoTable(doc, {
-      head: [headers],
-      body: tableData,
-      startY: 30,
-      margin: { top: 20 },
-      styles: { fontSize: 10, cellPadding: 2 },
-      headStyles: {
-        fillColor: [227, 31, 168], // RGB para #e31fa8
-        textColor: [255, 255, 255],
-        fontStyle: 'bold',
-      },
-      alternateRowStyles: { fillColor: [240, 240, 240] },
-      tableWidth: 'auto', // o '100%'
-    });
+  const headers = ['#', 'Nombre Completo', 'DNI', 'Fecha de Nacimiento', ...(optionFilter ? [optionFilter] : []), ...(conceptFilter ? ['Concepto', 'Monto'] : [])];
+  autoTable(doc, {
+    head: [headers],
+    body: tableData,
+    startY: 30,
+    margin: { top: 20 },
+    styles: { fontSize: 10, cellPadding: 2 },
+    headStyles: {
+      fillColor: [227, 31, 168], // RGB para #e31fa8
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+    },
+    alternateRowStyles: { fillColor: [240, 240, 240] },
+    tableWidth: 'auto', // o '100%'
+  });
 
-    doc.save('ListaAlumnosPagos.pdf');
-  };
+  doc.save('ListaAlumnosPagos.pdf');
+};
 
   const handleLogout = async () => {
     logout();
@@ -258,13 +249,13 @@ const ListStudent = () => {
   };
 
   // Función para normalizar el estado (insensible a mayúsculas/minúsculas y tildes)
-  const normalizeStatus = (value) => {
-    if (value === undefined || value === null || value === '') return '-';
-    const normalizedValue = String(value).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // Elimina tildes
-    if (normalizedValue === 'Si') return 'Si';
-    if (normalizedValue === 'no') return 'No';
-    return '-';
-  };
+const normalizeStatus = (value) => {
+  if (value === undefined || value === null || value === '') return 'No especificado';
+  const normalizedValue = String(value).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (normalizedValue === 'si') return 'Sí';
+  if (normalizedValue === 'no') return 'No';
+  return 'No especificado';
+};
 
   // Obtener años de nacimiento únicos para el filtro de categoría
   const uniqueBirthYears = [...new Set(estudiantes.map(student => new Date(student.birthDate).getFullYear()).sort((a, b) => b - a))];
@@ -383,15 +374,17 @@ const ListStudent = () => {
                     <option key={year} value={year}>{year}</option>
                   ))}
                 </select>
-                <select
-                  value={optionFilter}
-                  onChange={(e) => setOptionFilter(e.target.value)}
-                  className="filter-select-list"
-                >
-                  <option value="">Seleccionar opción</option>
-                  <option value="Liga">Liga</option>
-                  <option value="Seguro">Seguro</option>
-                </select>
+             <select
+  value={optionFilter}
+  onChange={(e) => {
+    setOptionFilter(e.target.value);
+  }}
+  className="filter-select-list"
+>
+  <option value="">Seleccionar opción</option>
+  <option value="Liga">Liga</option>
+  <option value="Seguro">Seguro</option>
+</select>
               </div>
               <div className="concept-filters">
                 <select
@@ -436,37 +429,42 @@ const ListStudent = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredStudents.length > 0 ? (
-                    filteredStudents.map((student, index) => {
-                      const payment = conceptFilter ? getPaymentByConcept(student._id, conceptFilter) : null;
-                      const statusKey = optionFilter.toLowerCase();
-                      const statusValue = student[statusKey];
-                      return (
-                        <tr key={student._id}>
-                          <td>{index + 1}</td>
-                          <td>{`${student.name} ${student.lastName}`}</td>
-                          <td>{student.dni}</td>
-                          <td>{formatDate(student.birthDate)}</td>
-                          {optionFilter && (
-                            <td>{normalizeStatus(student[optionFilter.toLowerCase()])}</td>
-                          )}
-                          {conceptFilter && (
-                            <>
-                              <td>{conceptFilter}</td>
-                              <td>{payment ? `$${payment.amount.toLocaleString('es-ES')}` : 'Pendiente'}</td>
-                            </>
-                          )}
-                        </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan={conceptFilter ? (optionFilter ? 7 : 5) : (optionFilter ? 5 : 4)} className="empty-table-message">
-                        No se encontraron alumnos con los filtros aplicados.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
+  {filteredStudents.length > 0 ? (
+    filteredStudents.map((student, index) => {
+      const payment = conceptFilter ? getPaymentByConcept(student._id, conceptFilter) : null;
+      let statusValue;
+      if (optionFilter === "Liga") {
+        statusValue = student.league;
+      } else if (optionFilter === "Seguro") {
+        statusValue = student.sure;
+      }
+     
+      return (
+        <tr key={student._id}>
+          <td>{index + 1}</td>
+          <td>{`${student.name} ${student.lastName}`}</td>
+          <td>{student.dni}</td>
+          <td>{formatDate(student.birthDate)}</td>
+          {optionFilter && (
+            <td>{normalizeStatus(statusValue)}</td>
+          )}
+          {conceptFilter && (
+            <>
+              <td>{conceptFilter}</td>
+              <td>{payment ? `$${payment.amount.toLocaleString('es-ES')}` : 'Pendiente'}</td>
+            </>
+          )}
+        </tr>
+      );
+    })
+  ) : (
+    <tr>
+      <td colSpan={conceptFilter ? (optionFilter ? 7 : 5) : (optionFilter ? 5 : 4)} className="empty-table-message">
+        No se encontraron alumnos con los filtros aplicados.
+      </td>
+    </tr>
+  )}
+</tbody>
               </table>
             </div>
           </section>

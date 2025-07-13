@@ -231,32 +231,30 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
               <option value="Inactivo">Inactivo</option>
             </Form.Control>
           </Form.Group>
-          <Form.Group controlId="formSure" className="studentFormModal-form-group">
-            <Form.Label>Seguro</Form.Label>
-            <Form.Select
-              name="sure"
-              value={localFormData.sure || ''}
-              onChange={handleInputChange}
-              className="form-control-custom"
-            >
-              <option value="">No especificado</option>
-              <option value="Si">Sí</option>
-              <option value="No">No</option>
-            </Form.Select>
-          </Form.Group>
-          <Form.Group controlId="formLeague" className="studentFormModal-form-group">
-            <Form.Label>Liga</Form.Label>
-            <Form.Select
-              name="league"
-              value={localFormData.league || ''}
-              onChange={handleInputChange}
-              className="form-control-custom"
-            >
-              <option value="">No especificado</option>
-              <option value="Si">Sí</option>
-              <option value="No">No</option>
-            </Form.Select>
-          </Form.Group>
+      <Form.Group controlId="formSure" className="studentFormModal-form-group">
+  <Form.Label>Seguro</Form.Label>
+  <Form.Select
+    name="sure"
+    value={localFormData.sure || 'No'} // Valor por defecto 'No'
+    onChange={handleInputChange}
+    className="form-control-custom"
+  >
+    <option value="Si">Sí</option>
+    <option value="No">No</option>
+  </Form.Select>
+</Form.Group>
+<Form.Group controlId="formLeague" className="studentFormModal-form-group">
+  <Form.Label>Liga</Form.Label>
+  <Form.Select
+    name="league"
+    value={localFormData.league || 'No'} // Valor por defecto 'No'
+    onChange={handleInputChange}
+    className="form-control-custom"
+  >
+    <option value="Si">Sí</option>
+    <option value="No">No</option>
+  </Form.Select>
+</Form.Group>
           <Form.Group controlId="formHasSiblingDiscount" className="studentFormModal-checkbox-group">
             <Form.Check
               type="checkbox"
