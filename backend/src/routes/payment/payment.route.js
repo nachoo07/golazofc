@@ -1,6 +1,6 @@
 import express from 'express';
 import { body, param } from 'express-validator';
-import { getPaymentsByStudent, createPayment, deletePayment, updatePayment, getAllPayments, getAllConcepts, createConcept, deleteConcept } from '../../controllers/payment/payment.controller.js';
+import { getPaymentsByStudent, createPayment, deletePayment, updatePayment, getAllPayments, getAllConcepts, createConcept, deleteConcept, getPaymentsByDateRange } from '../../controllers/payment/payment.controller.js';
 import { protect, admin } from '../../middlewares/login/protect.js';
 
 const router = express.Router();
@@ -41,5 +41,12 @@ router.delete( '/delete/:id',
 router.get( '/student/:studentId',
   [param('studentId').isMongoId().withMessage('ID de estudiante inválido')],
   protect, admin, getPaymentsByStudent );
+  
+  router.get( '/date-range',
+  [
+    body('startDate').isISO8601().withMessage('Fecha de inicio inválida'),
+    body('endDate').isISO8601().withMessage('Fecha de fin inválida'),
+  ],
+  protect, admin, getPaymentsByDateRange );
 
 export default router;

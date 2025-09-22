@@ -2,15 +2,19 @@ import { useEffect, useState, createContext, useContext } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
 import { LoginContext } from "../login/LoginContext";
+import { useNavigate } from "react-router-dom"; // Importar useNavigate
 
 export const UsersContext = createContext();
 
 const UsersProvider = ({ children }) => {
   const { auth, waitForAuth } = useContext(LoginContext);
   const [usuarios, setUsuarios] = useState([]);
+  const navigate = useNavigate(); // Agregar navigate
 
   const obtenerUsuarios = async () => {
     if (auth === "admin") {
+         return;
+    }
       try {
         const response = await axios.get("/api/users", {
           withCredentials: true,
@@ -24,6 +28,10 @@ const UsersProvider = ({ children }) => {
           response: error.response?.data,
           status: error.response?.status,
         });
+        if (error.response?.status === 401) {
+        // Token expirado o no autenticado, redirigir al login
+        navigate("/login");
+      } else {
         Swal.fire("¡Error!", "No se pudieron cargar los usuarios", "error");
       }
     }
@@ -62,6 +70,7 @@ const UsersProvider = ({ children }) => {
           errorMessage = "El correo ya está registrado.";
         } else if (error.response?.status === 401) {
           errorMessage = "Sesión expirada. Inicia sesión nuevamente.";
+          navigate("/login");
         } else if (error.message) {
           errorMessage = error.message;
         }
@@ -109,6 +118,7 @@ const UsersProvider = ({ children }) => {
           errorMessage = "El correo ya está registrado.";
         } else if (error.response?.status === 401) {
           errorMessage = "Sesión expirada. Inicia sesión nuevamente.";
+          navigate("/login");
         } else if (error.message) {
           errorMessage = error.message;
         }
@@ -151,13 +161,15 @@ const UsersProvider = ({ children }) => {
     }
   };
 
-  useEffect(() => {
+    useEffect(() => {
     const fetchData = async () => {
       await waitForAuth();
-      await obtenerUsuarios();
+      if (auth === "admin") {
+        await obtenerUsuarios();
+      }
     };
     fetchData();
-  }, [auth, waitForAuth]);
+  }, [auth, waitForAuth, navigate]);
 
   return (
     <UsersContext.Provider

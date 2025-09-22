@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext, useMemo, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  FaSearch, FaBars, FaTimes, FaList, FaUsers, FaClipboardList, FaMoneyBill, FaChartBar, FaExchangeAlt,
+  FaSearch, FaBars, FaTimes, FaList, FaUsers, FaClipboardList, FaMoneyBill, FaExchangeAlt,
   FaCalendarCheck, FaUserCog, FaCog, FaEnvelope, FaHome, FaArrowLeft, FaUserCircle,
   FaChevronDown, FaTimes as FaTimesClear
 } from "react-icons/fa";
@@ -31,7 +31,6 @@ const Share = () => {
     { name: "Inicio", route: "/", icon: <FaHome />, category: "principal" },
     { name: "Alumnos", route: "/student", icon: <FaUsers />, category: "principal" },
     { name: "Cuotas", route: "/share", icon: <FaMoneyBill />, category: "finanzas" },
-    { name: "Reportes", route: "/report", icon: <FaChartBar />, category: "informes" },
     { name: "Movimientos", route: "/motion", icon: <FaExchangeAlt />, category: "finanzas" },
     { name: "Asistencia", route: "/attendance", icon: <FaCalendarCheck />, category: "principal" },
     { name: "Usuarios", route: "/user", icon: <FaUserCog />, category: "configuracion" },
@@ -342,6 +341,13 @@ const Share = () => {
                               className="action-btn-share"
                               onClick={() => handleViewCuotas(student._id)}
                             >
+                              <FaUserCircle />
+                            </button>
+
+                            <button className="action-btn-student" title="Pagos" onClick={() => navigate(`/paymentstudent/${student._id}?page=${currentPage}&studentId=${student._id}`)}>
+                              <FaClipboardList />
+                            </button>
+                            <button className="action-btn-student" title="Ver Detalles" onClick={() => navigate(`/detailstudent/${student._id}`)}>
                               <FaUserCircle />
                             </button>
                           </td>

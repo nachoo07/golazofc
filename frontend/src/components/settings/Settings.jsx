@@ -4,7 +4,7 @@ import { LoginContext } from '../../context/login/LoginContext';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import {
-  FaBars, FaUsers, FaMoneyBill, FaList, FaClipboardList, FaChartBar, FaExchangeAlt, FaCalendarCheck,
+  FaBars, FaUsers, FaMoneyBill, FaList, FaClipboardList, FaExchangeAlt, FaCalendarCheck,
   FaUserCog, FaCog, FaEnvelope, FaHome, FaArrowLeft, FaInfoCircle, FaUserCircle,
   FaChevronDown, FaTimes, FaSearch, FaTimes as FaTimesClear
 } from 'react-icons/fa';
@@ -31,7 +31,6 @@ const Settings = () => {
     { name: 'Inicio', route: '/', icon: <FaHome /> },
     { name: 'Alumnos', route: '/student', icon: <FaUsers /> },
     { name: 'Cuotas', route: '/share', icon: <FaMoneyBill /> },
-    { name: 'Reportes', route: '/report', icon: <FaChartBar /> },
     { name: 'Movimientos', route: '/motion', icon: <FaExchangeAlt /> },
     { name: 'Asistencia', route: '/attendance', icon: <FaCalendarCheck /> },
     { name: 'Usuarios', route: '/user', icon: <FaUserCog /> },

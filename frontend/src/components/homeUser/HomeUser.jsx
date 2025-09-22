@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useContext } from 'react'
 import { useNavigate } from 'react-router-dom';
 import {
-  FaUsers, FaMoneyBill, FaChartBar, FaExchangeAlt, FaCalendarCheck, FaList,
+  FaUsers, FaMoneyBill, FaExchangeAlt, FaCalendarCheck, FaList,
   FaUserCog, FaCog, FaEnvelope, FaBell, FaBars, FaTimes, FaSearch, FaUserCircle, FaChevronDown, FaEllipsisH, FaClipboardList
 } from 'react-icons/fa';
 import { LoginContext } from '../../context/login/LoginContext';

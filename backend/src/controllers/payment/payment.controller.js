@@ -56,6 +56,27 @@ export const createConcept = async (req, res) => {
   }
 };
 
+export const getPaymentsByDateRange = async (req, res) => {
+  const { startDate, endDate } = sanitize(req.query);
+
+  try {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (isNaN(start) || isNaN(end)) {
+      return res.status(400).json({ message: 'Fechas inválidas' });
+    }
+    end.setDate(end.getDate() + 1);
+
+    const payments = await Payment.find({
+      paymentDate: { $gte: start, $lt: end }
+    }).sort({ paymentDate: -1 }).lean();
+
+    res.status(200).json(payments.length ? payments : { message: "No hay pagos disponibles para este rango de fechas" });
+  } catch (error) {
+    logger.error({ error: error.message }, 'Error al obtener pagos por rango de fechas');
+    res.status(500).json({ message: 'Error al obtener pagos' });
+  }
+};
 export const deleteConcept = async (req, res) => {
   const { id } = sanitize(req.params);
 

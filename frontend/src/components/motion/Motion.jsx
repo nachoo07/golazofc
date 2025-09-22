@@ -1,7 +1,7 @@
 import { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  FaBars, FaTimes, FaUsers,FaList, FaMoneyBill, FaChartBar, FaExchangeAlt,
+  FaBars, FaTimes, FaUsers,FaList, FaMoneyBill, FaExchangeAlt,
   FaCalendarCheck, FaUserCog, FaCog, FaEnvelope, FaHome, FaArrowLeft, FaUserCircle, FaChevronDown,
   FaTrash, FaEdit, FaPlus, FaClipboardList, FaSearch, FaTimes as FaTimesClear
 } from 'react-icons/fa';
@@ -46,7 +46,6 @@ const Motion = () => {
     { name: 'Inicio', route: '/', icon: <FaHome />, category: 'principal' },
     { name: 'Alumnos', route: '/student', icon: <FaUsers />, category: 'principal' },
     { name: 'Cuotas', route: '/share', icon: <FaMoneyBill />, category: 'finanzas' },
-    { name: 'Reportes', route: '/report', icon: <FaChartBar />, category: 'informes' },
     { name: 'Movimientos', route: '/motion', icon: <FaExchangeAlt />, category: 'finanzas' },
     { name: 'Asistencia', route: '/attendance', icon: <FaCalendarCheck />, category: 'principal' },
     { name: 'Usuarios', route: '/user', icon: <FaUserCog />, category: 'configuracion' },
@@ -219,7 +218,7 @@ const Motion = () => {
           </div>
         </header>
       )}
-      <div className="dashboard-container">
+      <div className="dashboard-layout">
         <aside className={`sidebar ${isMenuOpen ? 'open' : 'closed'}`}>
           <nav className="sidebar-nav">
             <div className="sidebar-section">
@@ -241,7 +240,7 @@ const Motion = () => {
             </div>
           </nav>
         </aside>
-        <div className="content-container">
+        <div className="main-content">
           <div className="welcome-text">
             <h1>Movimientos</h1>
           </div>

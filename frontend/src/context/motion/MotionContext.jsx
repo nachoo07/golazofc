@@ -20,7 +20,11 @@ export const MotionProvider = ({ children }) => {
       return data;
     } catch (error) {
       console.error('Error fetching motions:', error);
-      Swal.fire('¡Error!', 'No se pudieron obtener los movimientos.', 'error');
+            if (error.response?.status === 401) {
+        // Token expirado, no mostrar alerta en login
+      } else {
+        Swal.fire('¡Error!', 'No se pudieron obtener los movimientos.', 'error');
+      }
       throw error;
     } finally {
       setLoading(false);

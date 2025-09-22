@@ -4,7 +4,7 @@ import Container from 'react-bootstrap/Container';
 import Nav from 'react-bootstrap/Nav';
 import Navbar from 'react-bootstrap/Navbar';
 import { LoginContext } from '../../context/login/LoginContext';
-import { FaUserCircle, FaUsers,FaList, FaMoneyBill, FaChartBar, FaExchangeAlt, FaCalendarCheck, FaUserCog, FaCog, FaEnvelope,FaClipboardList, FaChevronDown, FaHome } from 'react-icons/fa';
+import { FaUserCircle, FaUsers,FaList, FaMoneyBill, FaExchangeAlt, FaCalendarCheck, FaUserCog, FaCog, FaEnvelope,FaClipboardList, FaChevronDown, FaHome } from 'react-icons/fa';
 import './navbar.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
@@ -29,7 +29,6 @@ const AppNavbar = ({ setIsMenuOpen, isMenuOpen }) => {
     { name: 'Inicio', route: '/', icon: <FaHome />, category: 'principal', adminOnly: false },
     { name: 'Alumnos', route: '/student', icon: <FaUsers />, category: 'principal', adminOnly: true },
     { name: 'Cuotas', route: '/share', icon: <FaMoneyBill />, category: 'finanzas', adminOnly: true },
-    { name: 'Reportes', route: '/report', icon: <FaChartBar />, category: 'informes', adminOnly: true },
     { name: 'Movimientos', route: '/motion', icon: <FaExchangeAlt />, category: 'finanzas', adminOnly: true },
     { name: 'Asistencia', route: '/attendance', icon: <FaCalendarCheck />, category: 'principal', adminOnly: false },
     { name: 'Usuarios', route: '/user', icon: <FaUserCog />, category: 'configuracion', adminOnly: true },

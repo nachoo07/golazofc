@@ -192,6 +192,26 @@ export const PaymentProvider = ({ children }) => {
     }
   }, [auth]);
 
+    const fetchPaymentsByDateRange = useCallback(async (startDate, endDate) => {
+    if (auth !== 'admin') return [];
+    try {
+      setLoadingPayments(true);
+      const response = await axios.get(
+        `/api/payments/date-range?startDate=${startDate}&endDate=${endDate}`,
+        { withCredentials: true }
+      );
+      const data = Array.isArray(response.data) ? response.data : [];
+      setPayments(data);
+      return data;
+    } catch (error) {
+      console.error('Error fetching payments by date range:', error);
+      Swal.fire('¡Error!', 'No se pudieron obtener los pagos por rango de fechas.', 'error');
+      return [];
+    } finally {
+      setLoadingPayments(false);
+    }
+  }, [auth]);
+
   return (
     <PaymentContext.Provider
       value={{
@@ -201,12 +221,13 @@ export const PaymentProvider = ({ children }) => {
         loadingConcepts,
         fetchPaymentsByStudent,
         fetchAllPayments,
+        fetchPaymentsByDateRange,
         createPayment,
         deletePaymentConcept,
         updatePaymentConcept,
         fetchConcepts,
         createConcept,
-        deleteConcept,
+        deleteConcept
       }}
     >
       {children}

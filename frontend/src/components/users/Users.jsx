@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  FaSearch, FaBars, FaList, FaTimes, FaUsers, FaClipboardList, FaMoneyBill, FaChartBar, FaExchangeAlt,
+  FaSearch, FaBars, FaList, FaTimes, FaUsers, FaClipboardList, FaMoneyBill, FaExchangeAlt,
   FaCalendarCheck, FaUserCog, FaCog, FaEnvelope, FaHome, FaArrowLeft, FaUserCircle,
   FaChevronDown, FaPlus, FaEdit, FaTrash, FaTimes as FaTimesClear
 } from 'react-icons/fa';
@@ -36,7 +36,6 @@ const Users = () => {
     { name: 'Inicio', route: '/', icon: <FaHome />, category: 'principal' },
     { name: 'Alumnos', route: '/student', icon: <FaUsers />, category: 'principal' },
     { name: 'Cuotas', route: '/share', icon: <FaMoneyBill />, category: 'finanzas' },
-    { name: 'Reportes', route: '/report', icon: <FaChartBar />, category: 'informes' },
     { name: 'Movimientos', route: '/motion', icon: <FaExchangeAlt />, category: 'finanzas' },
     { name: 'Asistencia', route: '/attendance', icon: <FaCalendarCheck />, category: 'principal' },
     { name: 'Usuarios', route: '/user', icon: <FaUserCog />, category: 'configuracion' },

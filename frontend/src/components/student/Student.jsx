@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import {FaSearch, FaBars, FaList, FaTimes, FaUsers, FaClipboardList, FaMoneyBill, FaChartBar, FaExchangeAlt, FaCalendarCheck, FaUserCog, FaCog, FaEnvelope, FaHome, FaArrowLeft, FaUserCircle,
+import {FaSearch, FaBars, FaList, FaTimes, FaUsers, FaClipboardList, FaMoneyBill, FaExchangeAlt, FaCalendarCheck, FaUserCog, FaCog, FaEnvelope, FaHome, FaArrowLeft, FaUserCircle,
   FaChevronDown, FaPlus, FaEdit, FaTrash, FaTimes as FaTimesClear, FaFileExcel} from "react-icons/fa";
 import { StudentsContext } from "../../context/student/StudentContext";
 import { LoginContext } from "../../context/login/LoginContext";
@@ -44,7 +44,6 @@ const Student = () => {
     { name: "Inicio", route: "/", icon: <FaHome />, category: "principal" },
     { name: "Alumnos", route: "/student", icon: <FaUsers />, category: "principal" },
     { name: "Cuotas", route: "/share", icon: <FaMoneyBill />, category: "finanzas" },
-    { name: "Reportes", route: "/report", icon: <FaChartBar />, category: "informes" },
     { name: "Movimientos", route: "/motion", icon: <FaExchangeAlt />, category: "finanzas", },
     { name: "Asistencia", route: "/attendance", icon: <FaCalendarCheck />, category: "principal", },
     { name: "Usuarios", route: "/user", icon: <FaUserCog />, category: "configuración" },
@@ -618,6 +617,9 @@ const Student = () => {
                             title="Ver Detalle"
                           >
                             <FaUserCircle />
+                          </button>
+                          <button className="action-btn-student" title="Pagos" onClick={() => navigate(`/paymentstudent/${estudiante._id}?page=${currentPage}&studentId=${estudiante._id}`)}>
+                            <FaClipboardList />
                           </button>
                           <button
                             className="action-btn-student"

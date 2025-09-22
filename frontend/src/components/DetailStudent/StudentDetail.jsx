@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { FaBars, FaTimes, FaUsers, FaSearch, FaList, FaClipboardList, FaMoneyBill, FaChartBar, FaExchangeAlt, FaCalendarCheck, FaUserCog, FaCog, FaEnvelope, FaHome, FaArrowLeft, FaFileInvoice, FaSun, FaMoon, FaUserCircle, FaChevronDown, FaTimes as FaTimesClear } from 'react-icons/fa';
+import { FaBars, FaTimes, FaUsers, FaSearch, FaList, FaClipboardList, FaMoneyBill, FaExchangeAlt, FaCalendarCheck, FaUserCog, FaCog, FaEnvelope, FaHome, FaArrowLeft, FaFileInvoice, FaSun, FaMoon, FaUserCircle, FaChevronDown, FaTimes as FaTimesClear } from 'react-icons/fa';
 import { StudentsContext } from "../../context/student/StudentContext";
 import { LoginContext } from "../../context/login/LoginContext";
 import "./detailStudent.css";
@@ -29,7 +29,6 @@ const StudentDetail = () => {
     { name: 'Inicio', route: '/', icon: <FaHome />, category: 'principal' },
     { name: 'Alumnos', route: '/student', icon: <FaUsers />, category: 'principal' },
     { name: 'Cuotas', route: '/share', icon: <FaMoneyBill />, category: 'finanzas' },
-    { name: 'Reportes', route: '/report', icon: <FaChartBar />, category: 'informes' },
     { name: 'Movimientos', route: '/motion', icon: <FaExchangeAlt />, category: 'finanzas' },
     { name: 'Asistencia', route: '/attendance', icon: <FaCalendarCheck />, category: 'principal' },
     { name: 'Usuarios', route: '/user', icon: <FaUserCog />, category: 'configuracion' },

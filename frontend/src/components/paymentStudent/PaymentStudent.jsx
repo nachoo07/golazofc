@@ -6,7 +6,6 @@ import {
   FaTimes,
   FaUsers,
   FaMoneyBill,
-  FaChartBar,
   FaExchangeAlt,
   FaUserCog,
   FaCog,
@@ -59,7 +58,6 @@ const PaymentStudent = () => {
     { name: "Inicio", route: "/", icon: <FaHome />, category: "principal" },
     { name: "Alumnos", route: "/student", icon: <FaUsers />, category: "principal" },
     { name: "Cuotas", route: "/share", icon: <FaMoneyBill />, category: "finanzas" },
-    { name: "Reportes", route: "/report", icon: <FaChartBar />, category: "informes" },
     { name: "Movimientos", route: "/motion", icon: <FaExchangeAlt />, category: "finanzas" },
     { name: "Usuarios", route: "/user", icon: <FaUserCog />, category: "configuracion" },
     { name: "Ajustes", route: "/settings", icon: <FaCog />, category: "configuracion" },
@@ -337,7 +335,7 @@ const PaymentStudent = () => {
             <div className="main-column">
               <section className="dashboard-welcome">
                 <div className="welcome-text">
-                  <h1>Pagos de {student.name} {student.lastName}</h1>
+                  <h1 className="title-payment-student">Pagos de {student.name} {student.lastName}</h1>
                 </div>
               </section>
               {windowWidth > 576 && (
@@ -364,8 +362,6 @@ const PaymentStudent = () => {
                   </div>
                 </section>
               )}
-              <section className="payment-table-container">
-                <h2 className="section-title">Historial de Pagos</h2>
                 <table className="payment-table">
                   <thead>
                     <tr>
@@ -379,9 +375,11 @@ const PaymentStudent = () => {
                   </thead>
                   <tbody>
                     {payments.length === 0 ? (
-                      <div className="no-data-payment">
-                          {loadingPayments ? "Cargando pagos..." : "No hay pagos registrados."}
-                      </div>
+                      <tr>
+                        <td colSpan="6" className="no-data-row-payment">
+                          No hay pagos registrados.
+                        </td>
+                      </tr>
                     ) : (
                       payments
                         .filter((payment) => payment.concept.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -424,10 +422,9 @@ const PaymentStudent = () => {
                     )}
                   </tbody>
                 </table>
-              </section>
             </div>
-            <div className="sidebar-column">
-              <div className="dashboard-sidebar">
+            <div className="sidebar-column-payment">
+              <div className="dashboard-sidebar-payment">
                 <div className="quick-actions">
                   <div className="panel-header">
                     <h2 className="panel-title">Acciones Rápidas</h2>
@@ -465,10 +462,10 @@ const PaymentStudent = () => {
                   </div>
                   <div className="summary-content">
                     <p>
-                      <strong>Total Pagado:</strong> ${totalPaid.toLocaleString("es-ES")}
+                      <strong>Pagos Registrados:</strong> {payments.length}
                     </p>
                     <p>
-                      <strong>Pagos Registrados:</strong> {payments.length}
+                      <strong>Total Pagado:</strong> ${totalPaid.toLocaleString("es-ES")}
                     </p>
                   </div>
                 </div>
@@ -491,8 +488,8 @@ const PaymentStudent = () => {
               </button>
             </div>
             <div className="modal-body">
-              <form onSubmit={handleSubmit} className="payment-form">
-                <div className="form-row full-width">
+              <form onSubmit={handleSubmit}>
+                <div className="form-row ">
                   <label>Concepto</label>
                   <select 
                     name="concept" 
@@ -589,7 +586,7 @@ const PaymentStudent = () => {
             <div className="modal-body">
               <h3>Agregar Nuevo Concepto</h3>
               <form onSubmit={handleAddConcept} className="payment-form">
-                <div className="form-row full-width">
+                <div className="form-row full-width-payment">
                   <label>Nombre del Concepto</label>
                   <input
                     type="text"
@@ -604,7 +601,7 @@ const PaymentStudent = () => {
                 <div className="modal-actions">
                   <button 
                     type="submit" 
-                    className="btn-submit"
+                    className="btn-submit-concept"
                     disabled={loadingPayments || loadingConcepts}
                   >
                     Guardar Concepto

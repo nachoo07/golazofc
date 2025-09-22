@@ -12,7 +12,6 @@ import { LoginContext } from '../context/login/LoginContext';
 import PageShare from '../pages/share/PageShare';
 import ProtectedRoute from '../routes/ProtectedRoute';
 import PageAttendance from '../pages/attendance/PageAttendance';
-import PageReport from '../pages/report/PageReport';
 import PageMotion from '../pages/motion/PageMotion';
 import Settings from '../components/settings/Settings'; // Nueva importación
 import EmailNotification from '../components/email/EmailNotification'; // Nueva importación
@@ -51,10 +50,6 @@ const Routing = () => {
       <Route
         path="/motion"
         element={<ProtectedRoute element={<PageMotion />} role="admin" />}
-      />
-      <Route
-        path="/report"
-        element={<ProtectedRoute element={<PageReport />} role="admin" />}
       />
       <Route
         path="/user"

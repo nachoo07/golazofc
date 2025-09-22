@@ -6,7 +6,7 @@ import { LoginContext } from "../../context/login/LoginContext";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import {
-  FaBars, FaUsers, FaMoneyBill, FaList, FaChartBar, FaExchangeAlt, FaCalendarCheck, FaUserCog,
+  FaBars, FaUsers, FaMoneyBill, FaList, FaExchangeAlt, FaCalendarCheck, FaUserCog,
   FaCog, FaEnvelope, FaHome, FaClipboardList, FaSearch, FaArrowLeft, FaTimes, FaCheck,
   FaTrash, FaUserCircle, FaChevronDown, FaTimes as FaTimesClear,
 } from "react-icons/fa";
@@ -55,7 +55,6 @@ const EmailNotification = () => {
     { name: "Inicio", route: "/", icon: <FaHome /> },
     { name: "Alumnos", route: "/student", icon: <FaUsers /> },
     { name: "Cuotas", route: "/share", icon: <FaMoneyBill /> },
-    { name: "Reportes", route: "/report", icon: <FaChartBar /> },
     { name: "Movimientos", route: "/motion", icon: <FaExchangeAlt /> },
     { name: "Asistencia", route: "/attendance", icon: <FaCalendarCheck /> },
     { name: "Usuarios", route: "/user", icon: <FaUserCog /> },

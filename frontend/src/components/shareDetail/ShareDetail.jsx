@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
-  FaSearch, FaBars, FaTimes, FaList, FaUsers, FaMoneyBill, FaChartBar, FaExchangeAlt,
+  FaSearch, FaBars, FaTimes, FaList, FaUsers, FaMoneyBill, FaExchangeAlt,
   FaCalendarCheck, FaUserCog, FaCog, FaEnvelope, FaClipboardList, FaHome, FaArrowLeft, FaUserCircle,
   FaChevronDown, FaEdit, FaTrash, FaMoneyBillWave, FaPlus
 } from "react-icons/fa";
@@ -48,7 +48,6 @@ const ShareDetail = () => {
     { name: "Inicio", route: "/", icon: <FaHome />, category: "principal" },
     { name: "Alumnos", route: "/student", icon: <FaUsers />, category: "principal" },
     { name: "Cuotas", route: "/share", icon: <FaMoneyBill />, category: "finanzas" },
-    { name: "Reportes", route: "/report", icon: <FaChartBar />, category: "informes" },
     { name: "Movimientos", route: "/motion", icon: <FaExchangeAlt />, category: "finanzas" },
     { name: "Asistencia", route: "/attendance", icon: <FaCalendarCheck />, category: "principal" },
     { name: "Usuarios", route: "/user", icon: <FaUserCog />, category: "configuracion" },
@@ -310,7 +309,7 @@ const ShareDetail = () => {
           </div>
         </header>
       )}
-      <div className="dashboard-container">
+      <div className="dashboard-layout">
         <aside className={`sidebar ${isMenuOpen ? "open" : "closed"}`}>
           <nav className="sidebar-nav">
             <div className="sidebar-section">
@@ -332,7 +331,7 @@ const ShareDetail = () => {
             </div>
           </nav>
         </aside>
-        <div className="content-container">
+        <div className="main-content">
           {isLoading ? (
             <div className="loading-message">
               Cargando datos...

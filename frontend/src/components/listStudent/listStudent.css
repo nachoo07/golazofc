@@ -15,9 +15,10 @@
   overflow-y: auto;
   background-color: var(--background-color);
 }
-
-.club-filters {
-  margin: 10px;
+.filter-action-list{
+  display: flex;
+  gap: 20px;
+  margin-bottom: 10px;
 }
 .students-payment th, .students-payment td {
   padding: 8px;

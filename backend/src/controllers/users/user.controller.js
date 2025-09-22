@@ -17,7 +17,6 @@ export const getAllUsers = async (req, res, next) => {
 };
 
 export const createUser = async (req, res, next) => {
-  console.log("Cuerpo de la solicitud:", req.body);
   const { name, mail, password, role } = req.body; // Evita sanitize por ahora para depuración
 
   // Validación de campos requeridos
