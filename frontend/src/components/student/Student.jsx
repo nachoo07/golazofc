@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect, useRef } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
 import {FaSearch, FaBars, FaList, FaTimes, FaUsers, FaClipboardList, FaMoneyBill, FaExchangeAlt, FaCalendarCheck, FaUserCog, FaCog, FaEnvelope, FaHome, FaArrowLeft, FaUserCircle,
   FaChevronDown, FaPlus, FaEdit, FaTrash, FaTimes as FaTimesClear, FaFileExcel} from "react-icons/fa";
 import { StudentsContext } from "../../context/student/StudentContext";
@@ -17,7 +17,9 @@ const Student = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { estudiantes, obtenerEstudiantes, addEstudiante, updateEstudiante, deleteEstudiante, importStudents, } = useContext(StudentsContext);
-  const { auth, logout, userData } = useContext(LoginContext);
+  const { auth, logout, userData, authReady } = useContext(LoginContext);
+  const [student, setStudent] = useState(null);
+  const { id } = useParams();
   const [searchTerm, setSearchTerm] = useState("");
   const [show, setShow] = useState(false);
   const profileRef = useRef(null);
@@ -25,20 +27,15 @@ const Student = () => {
   const [filterState, setFilterState] = useState("todos");
   const [formData, setFormData] = useState({
     name: "",lastName: "",dni: "",birthDate: "",address: "",mail: "",category: "",guardianName: "",guardianPhone: "",profileImage: null,state: "Activo",hasSiblingDiscount: false, sure: false, league: false,});
-  const [currentPage, setCurrentPage] = useState(1);
+ const [currentPage, setCurrentPage] = useState(1);
   const [showAlert, setShowAlert] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(true);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [isImporting, setIsImporting] = useState(false);
+  const [isInitialMount, setIsInitialMount] = useState(true);
   const studentsPerPage = 10;
-
-  const tempState = useRef({
-    currentPage: 1,
-    searchTerm: "",
-    filterState: "todos",
-  });
 
   const menuItems = [
     { name: "Inicio", route: "/", icon: <FaHome />, category: "principal" },
@@ -64,11 +61,6 @@ const Student = () => {
   }, []);
 
   useEffect(() => {
-    const queryParams = new URLSearchParams(location.search);
-    const page = parseInt(queryParams.get('page')) || 1;
-    setCurrentPage(page);
-    obtenerEstudiantes();
-
     const handleResize = () => {
       const newWidth = window.innerWidth;
       setWindowWidth(newWidth);
@@ -81,22 +73,65 @@ const Student = () => {
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [obtenerEstudiantes, location.search]);
+  }, []);
 
   useEffect(() => {
-    if (location.pathname !== "/student" && location.state?.fromStudent) {
-      setCurrentPage(1);
-      setSearchTerm("");
-      setFilterState("todos");
-    } else if (
-      location.pathname === "/student" &&
-      location.state?.fromDetail
-    ) {
-      setCurrentPage(tempState.current.currentPage);
-      setSearchTerm(tempState.searchTerm);
-      setFilterState(tempState.filterState);
+    if (!authReady) {
+      return;
     }
-  }, [location]);
+    if (!auth || (auth !== 'admin' && auth !== 'user')) {
+      Swal.fire('¡Error!', 'No estás autorizado. Por favor, inicia sesión nuevamente.', 'error');
+      navigate('/login');
+      return;
+    }
+    const queryParams = new URLSearchParams(location.search);
+    const page = parseInt(queryParams.get('page')) || 1;
+    const search = queryParams.get('search') || "";
+    const state = queryParams.get('state') || "todos";
+
+    setCurrentPage(page);
+    setSearchTerm(search);
+    setFilterState(state);
+
+    const fetchData = async () => {
+      try {
+        await obtenerEstudiantes();
+      } catch (error) {
+        console.error('Student: Error fetching students:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status,
+        });
+        if (error.response?.status === 401) {
+          Swal.fire('¡Error!', 'No estás autorizado. Por favor, inicia sesión nuevamente.', 'error');
+          navigate('/login');
+        } else if (error.response?.status === 404) {
+          Swal.fire('¡Error!', 'No se encontraron estudiantes.', 'error');
+        } else {
+          Swal.fire('¡Error!', error.response?.data?.message || 'No se pudieron cargar los estudiantes.', 'error');
+        }
+      }
+    };
+    fetchData();
+
+    setIsInitialMount(false);
+  }, [auth, authReady, navigate, location.search, obtenerEstudiantes]);
+
+    useEffect(() => {
+    if (isInitialMount) return;
+
+    const queryParams = new URLSearchParams();
+    if (currentPage !== 1) queryParams.set('page', currentPage);
+    if (searchTerm) queryParams.set('search', searchTerm);
+    if (filterState !== 'todos') queryParams.set('state', filterState);
+
+    const queryString = queryParams.toString();
+    const newUrl = queryString ? `/student?${queryString}` : '/student';
+    
+    if (location.pathname + location.search !== newUrl) {
+      navigate(newUrl, { replace: true });
+    }
+  }, [currentPage, searchTerm, filterState, navigate, location.pathname, location.search, isInitialMount]);
 
   const handleImportExcel = async (e) => {
     const file = e.target.files[0];
@@ -169,12 +204,39 @@ const Student = () => {
           if (studentList.length === 0) {
             throw new Error('El archivo Excel no contiene datos válidos');
           }
-          await importStudents(studentList);
+          const result = await importStudents(studentList);
+          Swal.fire({
+            title: result.icon === 'success' ? '¡Éxito!' : '¡Error!',
+            html: result.message,
+            icon: result.icon,
+            confirmButtonText: 'Aceptar',
+            width: '600px',
+            customClass: {
+              htmlContainer: 'swal2-html-container-scroll',
+            },
+          });
         } catch (error) {
-          console.error('Error al procesar el Excel:', error);
-          setAlertMessage(error.message || 'Error al procesar el archivo Excel');
-          setShowAlert(true);
-        } finally {
+          console.error('handleImportExcel: Error processing Excel:', {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status,
+          });
+          if (error.response?.status === 401) {
+            Swal.fire('¡Error!', 'No estás autorizado. Por favor, inicia sesión nuevamente.', 'error');
+            navigate('/login');
+          } else {
+            Swal.fire({
+              title: '¡Error!',
+              html: error.message || 'Error al procesar el archivo Excel',
+              icon: 'error',
+              confirmButtonText: 'Aceptar',
+              width: '600px',
+              customClass: {
+                htmlContainer: 'swal2-html-container-scroll',
+              },
+            });
+          }
+            } finally {
           setIsImporting(false);
           e.target.value = '';
         }
@@ -182,10 +244,25 @@ const Student = () => {
 
       reader.readAsArrayBuffer(file);
     } catch (error) {
-      console.error('Error al importar:', error);
+      console.error('handleImportExcel: Error importing:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
       setIsImporting(false);
       e.target.value = '';
+      Swal.fire('¡Error!', 'Error al procesar el archivo Excel', 'error');
     }
+  };
+
+    const handleViewPayments = (estudianteId) => {
+    const queryParams = new URLSearchParams();
+    if (currentPage !== 1) queryParams.set('page', currentPage);
+    if (searchTerm) queryParams.set('search', searchTerm);
+    if (filterState !== 'todos') queryParams.set('state', filterState);
+
+    const queryString = queryParams.toString();
+    navigate(`/paymentstudent/${estudianteId}${queryString ? `?${queryString}` : ''}`);
   };
 
   const filteredStudents = estudiantes.filter((estudiante) => {
@@ -224,6 +301,7 @@ const Student = () => {
   const currentStudents = filteredStudents.slice(indexOfFirstStudent,indexOfLastStudent);
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
+  
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
     setCurrentPage(1);
@@ -292,87 +370,86 @@ const Student = () => {
 };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
+    try {
+      if (formData.profileImage instanceof File) {
+        const validImageTypes = ['image/jpeg', 'image/png', 'image/heic', 'image/heif', 'image/webp', 'image/gif'];
+        if (!validImageTypes.includes(formData.profileImage.type)) {
+          Swal.fire('¡Error!', 'La imagen de perfil debe ser un archivo JPEG, PNG, HEIC, WEBP o GIF.', 'error');
+          return;
+        }
+        if (formData.profileImage.size > 5 * 1024 * 1024) {
+          Swal.fire('¡Error!', 'La imagen de perfil no debe exceder los 5MB.', 'error');
+          return;
+        }
+      }
 
-  // Validar formato de imagen en el frontend
-  if (formData.profileImage instanceof File) {
-    const validImageTypes = ['image/jpeg', 'image/png', 'image/heic', 'image/heif', 'image/webp', 'image/gif'];
-    if (!validImageTypes.includes(formData.profileImage.type)) {
-      Swal.fire({
-        title: '¡Error!',
-        text: 'La imagen de perfil debe ser un archivo JPEG, PNG, HEIC, WEBP o GIF.',
-        icon: 'error',
-        confirmButtonText: 'Aceptar',
-      });
-      return;
-    }
-    if (formData.profileImage.size > 5 * 1024 * 1024) {
-      Swal.fire({
-        title: '¡Error!',
-        text: 'La imagen de perfil no debe exceder los 5MB.',
-        icon: 'error',
-        confirmButtonText: 'Aceptar',
-      });
-      return;
-    }
-  }
+      const formattedData = {
+        ...formData,
+        birthDate: formData.dateInputValue,
+      };
 
-  const formattedData = {
-    ...formData,
-    birthDate: formData.dateInputValue,
+      let result;
+      if (editStudent) {
+        result = await updateEstudiante(formattedData);
+        if (result.success) {
+          Swal.fire('¡Éxito!', 'El perfil del estudiante ha sido actualizado correctamente.', 'success');
+        } else {
+          throw new Error(result.message);
+        }
+      } else {
+        result = await addEstudiante(formattedData);
+        if (result.success) {
+          Swal.fire('¡Éxito!', 'El estudiante ha sido agregado correctamente.', 'success');
+        } else {
+          throw new Error(result.message);
+        }
+      }
+      setShow(false);
+    } catch (error) {
+      console.error('handleSubmit: Error submitting student:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      if (error.response?.status === 401) {
+        Swal.fire('¡Error!', 'No estás autorizado. Por favor, inicia sesión nuevamente.', 'error');
+        navigate('/login');
+      } else if (error.response?.status === 400) {
+        Swal.fire('¡Error!', error.response?.data?.message || 'Los datos del estudiante son inválidos.', 'error');
+      } else if (error.response?.status === 404) {
+        Swal.fire('¡Error!', 'Estudiante no encontrado.', 'error');
+      } else {
+        Swal.fire('¡Error!', error.response?.data?.message || (editStudent ? 'No se pudo actualizar el estudiante.' : 'No se pudo agregar el estudiante.'), 'error');
+      }
+    }
   };
 
-  try {
-    let result;
-    if (editStudent) {
-      result = await updateEstudiante(formattedData);
-      if (result.success) {
-        Swal.fire({
-          title: '¡Éxito!',
-          text: 'El perfil del estudiante ha sido actualizado correctamente.',
-          icon: 'success',
-          confirmButtonText: 'Aceptar',
-        });
-      } else {
-        throw new Error(result.message);
-      }
-    } else {
-      result = await addEstudiante(formattedData);
-      if (result.success) {
-        Swal.fire({
-          title: '¡Éxito!',
-          text: 'El estudiante ha sido agregado correctamente.',
-          icon: 'success',
-          confirmButtonText: 'Aceptar',
-        });
-      } else {
-        throw new Error(result.message);
-      }
-    }
-    setShow(false);
-  } catch (error) {
-    console.error('Error capturado en handleSubmit:', error);
-    Swal.fire({
-      title: '¡Error!',
-      text: error.message || 'Ocurrió un problema al guardar el estudiante. Por favor, intenta de nuevo.',
-      icon: 'error',
-      confirmButtonText: 'Aceptar',
-    });
-  }
-};
-
-  const handleDelete = async (studentId) => {
+    const handleDelete = async (studentId) => {
     try {
       await deleteEstudiante(studentId);
+      Swal.fire('¡Éxito!', 'El estudiante ha sido eliminado correctamente.', 'success');
     } catch (error) {
-      Swal.fire("Error", "Hubo un problema al eliminar el alumno.", "error");
+      console.error('handleDelete: Error deleting student:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      if (error.response?.status === 401) {
+        Swal.fire('¡Error!', 'No estás autorizado. Por favor, inicia sesión nuevamente.', 'error');
+        navigate('/login');
+      } else {
+        Swal.fire('¡Error!', error.response?.data?.message || 'No se pudo eliminar el estudiante.', 'error');
+      }
     }
   };
 
-  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+   const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
 
-  const handleLogout = async () => {
-    logout();
+ const handleLogout = async () => {
+    await logout();
     navigate("/login");
     setIsMenuOpen(false);
   };
@@ -385,8 +462,14 @@ const Student = () => {
     }
   };
 
-  const handleViewDetail = (studentId) => {
-    navigate(`/detailstudent/${studentId}?page=${currentPage}`);
+   const handleViewDetail = (studentId) => {
+    const queryParams = new URLSearchParams();
+    if (currentPage !== 1) queryParams.set('page', currentPage);
+    if (searchTerm) queryParams.set('search', searchTerm);
+    if (filterState !== 'todos') queryParams.set('state', filterState);
+
+    const queryString = queryParams.toString();
+    navigate(`/detailstudent/${studentId}${queryString ? `?${queryString}` : ''}`);
   };
 
   return (
@@ -618,8 +701,12 @@ const Student = () => {
                           >
                             <FaUserCircle />
                           </button>
-                          <button className="action-btn-student" title="Pagos" onClick={() => navigate(`/paymentstudent/${estudiante._id}?page=${currentPage}&studentId=${estudiante._id}`)}>
-                            <FaClipboardList />
+                           <button
+                            className="action-btn-student"
+                            onClick={() => handleViewPayments(estudiante._id)}
+                            title="Ver Pagos"
+                          >
+                            <FaMoneyBill />
                           </button>
                           <button
                             className="action-btn-student"

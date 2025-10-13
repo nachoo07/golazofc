@@ -45,11 +45,11 @@ const Attendance = () => {
   const profileRef = useRef(null);
   const modalRef = useRef(null);
   const navigate = useNavigate();
-  const { estudiantes } = useContext(StudentsContext);
+  const { estudiantes, obtenerEstudiantes } = useContext(StudentsContext);
   const { auth, logout, userData } = useContext(LoginContext);
   const { agregarAsistencia, actualizarAsistencia, ObtenerAsistencia, asistencias } = useContext(AttendanceContext);
 
-  const categories = Array.from({ length: 2020 - 2007 + 1 }, (_, i) => String(2007 + i));
+  const categories = Array.from({ length: 2020 - 2012 + 1 }, (_, i) => String(2012 + i));
 
   const menuItems = [
     { name: 'Inicio', route: '/', icon: <FaHome />, category: 'principal' },
@@ -67,6 +67,13 @@ const Attendance = () => {
       { name: 'Asistencia', route: '/attendance', icon: <FaCalendarCheck />, category: 'principal' }
     ])
   ];
+
+  // Agregué useEffect para cargar estudiantes cuando cambie la autenticación
+useEffect(() => {
+  if (auth === 'admin' || auth === 'user') {
+    obtenerEstudiantes();
+  }
+}, [auth, obtenerEstudiantes]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -507,7 +514,7 @@ const Attendance = () => {
         </aside>
         <main className="main-content">
           <section className="dashboard-welcome">
-            <div className="welcome-text-attendance">
+            <div className="welcome-text">
               <h1>Registro de Asistencia</h1>
             </div>
           </section>

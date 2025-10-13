@@ -56,12 +56,12 @@ const Home = () => {
   const menuItems = [
     { name: 'Alumnos', route: '/student', icon: <FaUsers />, category: 'principal' },
     { name: 'Cuotas', route: '/share', icon: <FaMoneyBill />, category: 'finanzas' },
+    { name: 'Reporte', route: '/listeconomic', icon: <FaList />, category: 'finanzas' },
     { name: 'Movimientos', route: '/motion', icon: <FaExchangeAlt />, category: 'finanzas' },
     { name: 'Asistencia', route: '/attendance', icon: <FaCalendarCheck />, category: 'principal' },
     { name: 'Usuarios', route: '/user', icon: <FaUserCog />, category: 'configuracion' },
     { name: 'Ajustes', route: '/settings', icon: <FaCog />, category: 'configuracion' },
     { name: 'Envios de Mail', route: '/email-notifications', icon: <FaEnvelope />, category: 'comunicacion' },
-    { name: 'Lista de Movimientos', route: '/listeconomic', icon: <FaList />, category: 'finanzas' },
     { name: 'Listado de Alumnos', route: '/liststudent', icon: <FaClipboardList  />, category: 'informes' }
   ];
 
@@ -197,9 +197,9 @@ const Home = () => {
     <div className="content-columns">
       <div className="main-column">
         <section className="dashboard-welcome">
-          <div className="welcome-text">
-            <h1>Bienvenido al Sistema</h1>
-            <p>Panel de control | <span className="current-date">{new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span></p>
+              <div className="welcome-text">
+            <h1 className="titulo-principal">Bienvenido al Sistema</h1>
+            <p className="panel-de-control">Panel de control | <span className="current-date">{new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span></p>
           </div>
         </section>
         <section className="module-categories">

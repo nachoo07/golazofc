@@ -8,22 +8,17 @@ import AppNavbar from '../navbar/AppNavbar';
 import logo from '../../assets/logo.png';
 
 const StudentDetail = () => {
-  const { estudiantes } = useContext(StudentsContext);
+  const { obtenerEstudiantePorId, selectedStudent, loading } = useContext(StudentsContext);
   const { logout, userData } = useContext(LoginContext);
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const [student, setStudent] = useState(null);
   const profileRef = useRef(null);
   const [imageError, setImageError] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(true);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-
-  // Leer el parámetro 'page' de la URL
-  const queryParams = new URLSearchParams(location.search);
-  const page = queryParams.get('page') || 1;
 
   const menuItems = [
     { name: 'Inicio', route: '/', icon: <FaHome />, category: 'principal' },
@@ -50,8 +45,6 @@ const StudentDetail = () => {
   }, []);
 
   useEffect(() => {
-    const selectedStudent = estudiantes.find((est) => est._id === id);
-    setStudent(selectedStudent);
     const handleResize = () => {
       const newWidth = window.innerWidth;
       setWindowWidth(newWidth);
@@ -64,13 +57,14 @@ const StudentDetail = () => {
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [id, estudiantes]);
+  }, []);
 
-  if (!student) {
-    return <div className="loading-text">Cargando...</div>;
-  }
+   useEffect(() => {
+    obtenerEstudiantePorId(id);
+  }, [id, obtenerEstudiantePorId]);
 
-  const formatDate = (date) => {
+    const formatDate = (date) => {
+    if (!date) return '';
     const adjustedDate = new Date(date);
     adjustedDate.setDate(adjustedDate.getDate() + 1);
     const options = { year: 'numeric', month: '2-digit', day: '2-digit' };
@@ -78,11 +72,13 @@ const StudentDetail = () => {
   };
 
   const handleViewShares = () => {
-    navigate(`/share/${student._id}`);
+    const queryString = location.search;
+    navigate(`/share/${id}${queryString}`);
   };
 
-  const handleViewPayments = () => {
-    navigate(`/paymentstudent/${student._id}`);
+   const handleViewPayments = () => {
+    const queryString = location.search;
+    navigate(`/paymentstudent/${id}${queryString}`);
   };
 
   const handleImageError = (e) => {
@@ -102,8 +98,8 @@ const StudentDetail = () => {
     setSearchTerm(e.target.value);
   };
 
-  const handleBack = () => {
-    navigate(`/student?page=${page}`);
+    const handleBack = () => {
+    navigate(`/student${location.search}`);
   };
 
   return (
@@ -196,21 +192,21 @@ const StudentDetail = () => {
             <div className="perfil-header">
               <div className="perfil-avatar">
                 <img
-                  src={student.profileImage}
+                  src={selectedStudent?.profileImage}
                   alt="Perfil"
                   onError={handleImageError}
                   className="avatar-img"
                 />
               </div>
               <div className="perfil-info">
-                <h2>{student.name} {student.lastName}</h2>
-                <p className="perfil-status">Estado: <span className={`state-${student.state.toLowerCase()}`}>{student.state}</span></p>
+                <h2>{selectedStudent?.name} {selectedStudent?.lastName}</h2>
+                <p className="perfil-status">Estado: <span className={`state-${selectedStudent?.state?.toLowerCase()}`}>{selectedStudent?.state}</span></p>
                 <div className="perfil-buttons">
                   <button className="action-btn-header" onClick={handleViewShares}>
-                    Ver Cuotas
+                    Cuotas
                   </button>
                   <button className="action-btn-header" onClick={handleViewPayments}>
-                    Ver Pagos
+                    Pagos
                   </button>
                   <button className="action-btn-header" onClick={handleBack}>
                     <FaArrowLeft /> Volver Atrás
@@ -224,15 +220,15 @@ const StudentDetail = () => {
                 <div className="details-row">
                   <div className="form-group">
                     <label className="label-text">DNI</label>
-                    <input type="text" value={student.dni || ''} readOnly className="form-control-custom" />
+                    <input type="text" value={selectedStudent?.dni || ''} readOnly className="form-control-custom" />
                   </div>
                   <div className="form-group">
                     <label className="label-text">Fecha de Nacimiento</label>
-                    <input type="text" value={formatDate(student.birthDate)} readOnly className="form-control-custom" />
+                    <input type="text" value={formatDate(selectedStudent?.birthDate)} readOnly className="form-control-custom" />
                   </div>
                   <div className="form-group">
                     <label className="label-text">Dirección</label>
-                    <input type="text" value={student.address || ''} readOnly className="form-control-custom" />
+                    <input type="text" value={selectedStudent?.address || ''} readOnly className="form-control-custom" />
                   </div>
                 </div>
               </div>
@@ -241,15 +237,15 @@ const StudentDetail = () => {
                 <div className="details-row">
                   <div className="form-group">
                     <label className="label-text">Email</label>
-                    <input type="text" value={student.mail || ''} readOnly className="form-control-custom" />
+                    <input type="text" value={selectedStudent?.mail || ''} readOnly className="form-control-custom" />
                   </div>
                   <div className="form-group">
                     <label className="label-text">Nombre del Tutor</label>
-                    <input type="text" value={student.guardianName || ''} readOnly className="form-control-custom" />
+                    <input type="text" value={selectedStudent?.guardianName || ''} readOnly className="form-control-custom" />
                   </div>
                   <div className="form-group">
                     <label className="label-text">Teléfono del Tutor</label>
-                    <input type="text" value={student.guardianPhone || ''} readOnly className="form-control-custom" />
+                    <input type="text" value={selectedStudent?.guardianPhone || ''} readOnly className="form-control-custom" />
                   </div>
                 </div>
               </div>
@@ -259,17 +255,17 @@ const StudentDetail = () => {
                   <div className="details-row">
                     <div className="form-group">
                       <label className="label-text">Categoría</label>
-                      <input type="text" value={student.category || ''} readOnly className="form-control-custom" />
+                      <input type="text" value={selectedStudent?.category || ''} readOnly className="form-control-custom" />
                     </div>
                     <div className="form-group">
                       <label className="label-text">Descuento por Hermanos</label>
-                      <input type="text" value={student.hasSiblingDiscount ? 'Sí' : 'No'} readOnly className="form-control-custom" />
+                      <input type="text" value={selectedStudent?.hasSiblingDiscount ? 'Sí' : 'No'} readOnly className="form-control-custom" />
                     </div>
                     <div className="form-group">
                       <label className="label-text">Seguro</label>
                       <input
                         type="text"
-                        value={student.sure === 'Si' ? 'Si' : student.sure === 'No' ? 'No' : 'No especificado'}
+                        value={selectedStudent?.sure === 'Si' ? 'Si' : selectedStudent?.sure === 'No' ? 'No' : 'No especificado'}
                         readOnly
                         className="form-control-custom"
                       />
@@ -278,7 +274,7 @@ const StudentDetail = () => {
                       <label className="label-text">Liga</label>
                       <input
                         type="text"
-                        value={student.league === 'Si' ? 'Si' : student.league === 'No' ? 'No' : 'No especificado'}
+                        value={selectedStudent?.league === 'Si' ? 'Si' : selectedStudent?.league === 'No' ? 'No' : 'No especificado'}
                         readOnly
                         className="form-control-custom"
                       />

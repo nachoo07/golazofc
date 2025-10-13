@@ -28,6 +28,7 @@ const Users = () => {
     role: 'user',
     state: 'Activo'
   });
+  const [formErrors, setFormErrors] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const usersPerPage = 10;
@@ -76,11 +77,16 @@ const Users = () => {
     resetForm();
   };
 
-  const handleShow = () => setShow(true);
+  const handleShow = () => {
+    setFormErrors({}); // Limpiar errores al abrir el formulario
+    setShow(true);
+  };
 
-  const handleChange = (e) => {
+   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
+    // Limpiar error del campo al cambiar su valor
+    setFormErrors((prevErrors) => ({ ...prevErrors, [name]: '' }));
   };
 
   const handleSubmit = async (e) => {
@@ -122,6 +128,16 @@ const Users = () => {
         response: error.response?.data,
         status: error.response?.status,
       });
+      if (error.response?.status === 400 && error.response?.data?.errors) {
+        // Mapear errores a los campos correspondientes
+        const errors = error.response.data.errors.reduce((acc, err) => {
+          acc[err.path] = err.msg;
+          return acc;
+        }, {});
+        setFormErrors(errors);
+      } else {
+        Swal.fire('Error', error.response?.data?.message || 'Error al procesar la solicitud', 'error');
+      }
     }
   };
 
@@ -133,6 +149,7 @@ const Users = () => {
       role: 'user',
       state: 'Activo'
     });
+    setFormErrors({});
   };
 
   const handleShowAddUser = () => {

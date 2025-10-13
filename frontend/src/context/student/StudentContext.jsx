@@ -9,7 +9,7 @@ const StudentsProvider = ({ children }) => {
   const [estudiantes, setEstudiantes] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [loading, setLoading] = useState(false);
-  const { auth, waitForAuth } = useContext(LoginContext);
+  const { auth, authReady } = useContext(LoginContext);
   const cache = useRef(new Map());
 
   const capitalizeWords = (str) => {
@@ -59,8 +59,25 @@ const StudentsProvider = ({ children }) => {
     }
   };
 
+   useEffect(() => {
+  if (!auth || !authReady) {
+    cache.current.clear();
+    setEstudiantes([]);
+    setSelectedStudent(null);
+  } else if (authReady && (auth === 'admin' || auth === 'user')) {
+    // Cargar estudiantes automáticamente cuando la autenticación está lista
+    obtenerEstudiantes();
+  }
+}, [auth, authReady, obtenerEstudiantes]);
+
   const obtenerEstudiantes = useCallback(async () => {
-    if (auth !== 'admin' && auth !== 'user') return;
+    if (!authReady) {
+      return;
+    }
+    if (!auth || (auth !== 'admin' && auth !== 'user')) {
+      setEstudiantes([]);
+      return;
+    }
     if (cache.current.has('estudiantes')) {
       setEstudiantes(cache.current.get('estudiantes'));
       return;
@@ -81,20 +98,25 @@ const StudentsProvider = ({ children }) => {
       cache.current.set('estudiantes', formattedData);
       setEstudiantes(formattedData);
     } catch (error) {
-      console.error('Error obteniendo estudiantes:', error);
-      Swal.fire({
-        title: '¡Error!',
-        text: 'No se pudieron obtener los estudiantes.',
-        icon: 'error',
-        confirmButtonText: 'Aceptar',
+      console.error('obtenerEstudiantes: Error fetching students:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
       });
+      setEstudiantes([]);
+      throw error; // Let Student.jsx handle the error
     } finally {
       setLoading(false);
     }
-  }, [auth]);
+  }, [auth, authReady]);
 
   const obtenerEstudiantePorId = useCallback(async (studentId) => {
-    if (!studentId) return;
+    if (!authReady) {
+      return;
+    }
+    if (!studentId || !auth || (auth !== 'admin' && auth !== 'user')) {
+      return;
+    }
     try {
       setLoading(true);
       const response = await axios.get(`/api/students/${studentId}`, {
@@ -110,71 +132,63 @@ const StudentsProvider = ({ children }) => {
       cache.current.set(studentId, student);
       setSelectedStudent(student);
     } catch (error) {
-      console.error('Error obteniendo estudiante por ID:', error);
-      Swal.fire({
-        title: '¡Error!',
-        text: 'No se pudo obtener el estudiante.',
-        icon: 'error',
-        confirmButtonText: 'Aceptar',
+      console.error('obtenerEstudiantePorId: Error fetching student:', {
+        studentId,
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
       });
       setSelectedStudent(null);
+      throw error; // Let calling component handle the error
     } finally {
       setLoading(false);
     }
-  }, [auth]);
+  }, [auth, authReady]);
 
-  const addEstudiante = useCallback(async (estudiante) => {
-  if (auth !== 'admin') {
-    Swal.fire({
-      title: '¡Error!',
-      text: 'No tienes permisos para agregar estudiantes.',
-      icon: 'error',
-      confirmButtonText: 'Aceptar',
-    });
-    return { success: false, message: 'No tienes permisos para agregar estudiantes.' };
-  }
-
-  try {
-    setLoading(true);
-    let profileImageUrl = estudiante.profileImage;
-    if (estudiante.profileImage instanceof File) {
-      const validImageTypes = ['image/jpeg', 'image/png', 'image/heic', 'image/heif', 'image/webp', 'image/gif'];
-      if (!validImageTypes.includes(estudiante.profileImage.type)) {
-        throw new Error('La imagen de perfil debe ser un archivo JPEG, PNG, HEIC, WEBP o GIF.');
-      }
-      if (estudiante.profileImage.size > 5 * 1024 * 1024) {
-        throw new Error('La imagen de perfil no debe exceder los 5MB.');
-      }
-      profileImageUrl = null;
-    } else if (!profileImageUrl) {
-      profileImageUrl = 'https://i.pinimg.com/736x/24/f2/25/24f22516ec47facdc2dc114f8c3de7db.jpg';
+ const addEstudiante = useCallback(async (estudiante) => {
+    if (!authReady || auth !== 'admin') {
+      return { success: false, message: 'No tienes permisos para agregar estudiantes.' };
     }
-
-    const estudianteData = {
-      ...estudiante,
-      name: capitalizeWords(estudiante.name),
-      lastName: capitalizeWords(estudiante.lastName),
-      guardianName: capitalizeWords(estudiante.guardianName),
-      profileImage: profileImageUrl,
-      birthDate: estudiante.birthDate || '',
-    };
-
-    const formData = new FormData();
-    Object.keys(estudianteData).forEach(key => {
-      if (key === 'profileImage' && estudiante.profileImage instanceof File) {
-        formData.append('profileImageFile', estudiante.profileImage);
-      } else if (estudianteData[key] !== undefined && estudianteData[key] !== null) {
-        formData.append(key, typeof estudianteData[key] === 'boolean' ? estudianteData[key].toString() : estudianteData[key]);
+    try {
+      setLoading(true);
+      let profileImageUrl = estudiante.profileImage;
+      if (estudiante.profileImage instanceof File) {
+        const validImageTypes = ['image/jpeg', 'image/png', 'image/heic', 'image/heif', 'image/webp', 'image/gif'];
+        if (!validImageTypes.includes(estudiante.profileImage.type)) {
+          throw new Error('La imagen de perfil debe ser un archivo JPEG, PNG, HEIC, WEBP o GIF.');
+        }
+        if (estudiante.profileImage.size > 5 * 1024 * 1024) {
+          throw new Error('La imagen de perfil no debe exceder los 5MB.');
+        }
+        profileImageUrl = null;
+      } else if (!profileImageUrl) {
+        profileImageUrl = 'https://i.pinimg.com/736x/24/f2/25/24f22516ec47facdc2dc114f8c3de7db.jpg';
       }
-    });
 
-    const response = await axios.post('/api/students/create', formData, {
-      withCredentials: true,
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+      const estudianteData = {
+        ...estudiante,
+        name: capitalizeWords(estudiante.name),
+        lastName: capitalizeWords(estudiante.lastName),
+        guardianName: capitalizeWords(estudiante.guardianName),
+        profileImage: profileImageUrl,
+        birthDate: estudiante.birthDate || '',
+      };
 
-    if (response.status === 201) {
-      if (response.data?.student) {
+      const formData = new FormData();
+      Object.keys(estudianteData).forEach(key => {
+        if (key === 'profileImage' && estudiante.profileImage instanceof File) {
+          formData.append('profileImageFile', estudiante.profileImage);
+        } else if (estudianteData[key] !== undefined && estudianteData[key] !== null) {
+          formData.append(key, typeof estudianteData[key] === 'boolean' ? estudianteData[key].toString() : estudianteData[key]);
+        }
+      });
+
+      const response = await axios.post('/api/students/create', formData, {
+        withCredentials: true,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      if (response.status === 201 && response.data?.student) {
         const newStudent = response.data.student;
         const formattedStudent = {
           ...newStudent,
@@ -185,62 +199,26 @@ const StudentsProvider = ({ children }) => {
         };
         setEstudiantes(prev => [...(Array.isArray(prev) ? prev : []), formattedStudent]);
         cache.current.set('estudiantes', [...(cache.current.get('estudiantes') || []), formattedStudent]);
-        Swal.fire({
-          title: '¡Éxito!',
-          text: 'Estudiante creado correctamente.',
-          icon: 'success',
-          confirmButtonText: 'Aceptar',
-        });
         return { success: true, student: formattedStudent };
       } else {
-        throw new Error('Respuesta del servidor no contiene datos del estudiante.');
+        throw new Error(response.data?.error || response.data?.message || 'Error desconocido del servidor.');
       }
-    } else {
-      throw new Error(response.data?.error || response.data?.message || 'Error desconocido del servidor.');
+    } catch (error) {
+      console.error('addEstudiante: Error creating student:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      throw error; // Let Student.jsx handle the error
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Error detallado al crear el estudiante:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-    });
-    let errorMessage = 'Ha ocurrido un error al crear el estudiante.';
-    const rawMessage = error.response?.data?.error || error.response?.data?.message || error.message;
-
-    if (typeof rawMessage === 'string' && rawMessage.includes('El DNI ya está registrado')) {
-      errorMessage = 'El DNI ya está registrado. Por favor, usa un DNI diferente.';
-    } else if (typeof rawMessage === 'string' && rawMessage.includes('Faltan datos obligatorios')) {
-      errorMessage = rawMessage;
-    } else if (typeof rawMessage === 'string' && rawMessage.includes('DNI debe contener entre 7 y 9 dígitos')) {
-      errorMessage = 'El DNI debe contener entre 7 y 9 dígitos.';
-    } else if (typeof rawMessage === 'string' && rawMessage.includes('Formato de fecha de nacimiento inválido')) {
-      errorMessage = 'La fecha de nacimiento tiene un formato inválido. Usa el formato yyyy-MM-dd.';
-    } else if (typeof rawMessage === 'string' && rawMessage.includes('Formato de correo electrónico no válido')) {
-      errorMessage = 'El correo electrónico tiene un formato inválido.';
-    } else if (typeof rawMessage === 'string' && rawMessage.includes('El número de teléfono del tutor')) {
-      errorMessage = 'El número de teléfono del tutor debe tener entre 10 y 15 dígitos.';
-    } else if (typeof rawMessage === 'string' && rawMessage.includes('Error al procesar imagen')) {
-      errorMessage = 'Hubo un problema al subir la imagen de perfil. Asegúrate de que sea un archivo JPEG, PNG, HEIC, WEBP o GIF y no exceda los 5MB.';
-    } else if (typeof rawMessage === 'string' && rawMessage.includes('Errores de validación')) {
-      errorMessage = rawMessage;
-    } else {
-      errorMessage = `Error interno: ${rawMessage}`;
-    }
-
-    Swal.fire({
-      title: '¡Error!',
-      text: errorMessage,
-      icon: 'error',
-      confirmButtonText: 'Aceptar',
-    });
-    return { success: false, message: errorMessage }; // Devolver el resultado en lugar de lanzar error
-  } finally {
-    setLoading(false);
-  }
-}, [auth]);
+  }, [auth, authReady]);
 
   const deleteEstudiante = useCallback(async (id) => {
-    if (auth !== 'admin') return;
+    if (!authReady || auth !== 'admin') {
+      return;
+    }
     try {
       const confirmacion = await Swal.fire({
         title: '¿Estás seguro que deseas eliminar el estudiante?',
@@ -262,172 +240,126 @@ const StudentsProvider = ({ children }) => {
         if (selectedStudent?._id === id) {
           setSelectedStudent(null);
         }
-        Swal.fire({
-          title: '¡Eliminado!',
-          text: 'El estudiante ha sido eliminado correctamente',
-          icon: 'success',
-        });
       }
     } catch (error) {
-      console.error('Error al eliminar estudiante:', error);
-      Swal.fire({
-        title: '¡Error!',
-        text: 'No se pudo eliminar el estudiante',
-        icon: 'error',
-        confirmButtonText: 'Aceptar',
+      console.error('deleteEstudiante: Error deleting student:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
       });
+      throw error; // Let Student.jsx handle the error
     }
-  }, [auth, selectedStudent]);
+  }, [auth, authReady, selectedStudent]);
 
   const updateEstudiante = useCallback(async (estudiante) => {
-  if (auth !== 'admin') {
-    Swal.fire({
-      title: '¡Error!',
-      text: 'No tienes permisos para actualizar estudiantes.',
-      icon: 'error',
-      confirmButtonText: 'Aceptar',
-    });
-    return { success: false, message: 'No tienes permisos para actualizar estudiantes.' };
-  }
-
-  try {
-    setLoading(true);
-    let profileImageUrl = estudiante.profileImage;
-    if (estudiante.profileImage instanceof File) {
-      const validImageTypes = ['image/jpeg', 'image/png', 'image/heic', 'image/heif', 'image/webp', 'image/gif'];
-      if (!validImageTypes.includes(estudiante.profileImage.type)) {
-        throw new Error('La imagen de perfil debe ser un archivo JPEG, PNG, HEIC, WEBP o GIF.');
-      }
-      if (estudiante.profileImage.size > 5 * 1024 * 1024) {
-        throw new Error('La imagen de perfil no debe exceder los 5MB.');
-      }
-      profileImageUrl = null;
-    } else if (!profileImageUrl) {
-      profileImageUrl = 'https://i.pinimg.com/736x/24/f2/25/24f22516ec47facdc2dc114f8c3de7db.jpg';
+    if (!authReady || auth !== 'admin') {
+      return { success: false, message: 'No tienes permisos para actualizar estudiantes.' };
     }
-
-    const estudianteData = {
-      ...estudiante,
-      name: capitalizeWords(estudiante.name),
-      lastName: capitalizeWords(estudiante.lastName),
-      guardianName: capitalizeWords(estudiante.guardianName),
-      profileImage: profileImageUrl,
-      birthDate: estudiante.birthDate || '',
-    };
-
-    const formData = new FormData();
-    Object.keys(estudianteData).forEach(key => {
-      if (key === 'profileImage' && estudiante.profileImage instanceof File) {
-        formData.append('profileImageFile', estudiante.profileImage);
-      } else if (estudianteData[key] !== undefined && estudianteData[key] !== null) {
-        formData.append(key, typeof estudianteData[key] === 'boolean' ? estudianteData[key].toString() : estudianteData[key]);
-      }
-    });
-
-    const response = await axios.put(`/api/students/update/${estudiante._id}`, formData, {
-      withCredentials: true,
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-
-    if (response.status === 200 && response.data?.student) {
-      const updatedStudent = response.data.student;
-      const formattedStudent = {
-        ...updatedStudent,
-        name: capitalizeWords(updatedStudent.name),
-        lastName: capitalizeWords(updatedStudent.lastName),
-        guardianName: capitalizeWords(updatedStudent.guardianName),
-        birthDate: updatedStudent.birthDate ? new Date(updatedStudent.birthDate).toISOString().split('T')[0] : '',
-      };
-      setEstudiantes(prev =>
-        prev.map(est => (est._id === estudiante._id ? formattedStudent : est))
-      );
-      cache.current.set('estudiantes', cache.current.get('estudiantes').map(est =>
-        est._id === estudiante._id ? formattedStudent : est
-      ));
-      cache.current.set(estudiante._id, formattedStudent);
-      if (selectedStudent?._id === estudiante._id) {
-        setSelectedStudent(formattedStudent);
-      }
-      Swal.fire({
-        title: '¡Éxito!',
-        text: 'Estudiante actualizado correctamente.',
-        icon: 'success',
-        confirmButtonText: 'Aceptar',
-      });
-      return { success: true, student: formattedStudent };
-    } else {
-      throw new Error('Respuesta inesperada del servidor al actualizar el estudiante.');
-    }
-  } catch (error) {
-    console.error('Error al actualizar estudiante:', error);
-    let errorMessage = 'Ha ocurrido un error al actualizar el estudiante.';
-    const rawMessage = error.response?.data?.error || error.message;
-
-    if (rawMessage.includes('El DNI ya está registrado')) {
-      errorMessage = 'El DNI ya está registrado en otro estudiante. Por favor, usa un DNI diferente.';
-    } else if (rawMessage.includes('Faltan datos obligatorios')) {
-      errorMessage = rawMessage;
-    } else if (rawMessage.includes('DNI debe contener entre 7 y 9 dígitos')) {
-      errorMessage = 'El DNI debe contener entre 7 y 9 dígitos.';
-    } else if (rawMessage.includes('Formato de fecha de nacimiento inválido')) {
-      errorMessage = 'La fecha de nacimiento tiene un formato inválido. Usa el formato yyyy-MM-dd.';
-    } else if (rawMessage.includes('Formato de correo electrónico no válido')) {
-      errorMessage = 'El correo electrónico tiene un formato inválido.';
-    } else if (rawMessage.includes('El número de teléfono del tutor')) {
-      errorMessage = 'El número de teléfono del tutor debe tener entre 10 y 15 dígitos.';
-    } else if (rawMessage.includes('Error al procesar imagen')) {
-      errorMessage = 'Hubo un problema al procesar la imagen de perfil. Asegúrate de que sea un archivo JPEG, PNG, HEIC, WEBP o GIF y no exceda los 5MB.';
-    } else if (rawMessage.includes('Errores de validación')) {
-      errorMessage = rawMessage;
-    } else if (rawMessage.includes('Estudiante no encontrado')) {
-      errorMessage = 'El estudiante no fue encontrado.';
-    } else {
-      errorMessage = `Error interno: ${rawMessage}`;
-    }
-
-    Swal.fire({
-      title: '¡Error!',
-      text: errorMessage,
-      icon: 'error',
-      confirmButtonText: 'Aceptar',
-    });
-    return { success: false, message: errorMessage };
-  } finally {
-    setLoading(false);
-  }
-}, [auth, selectedStudent]);
-
-  const importStudents = useCallback(async (studentList) => {
-    if (auth !== 'admin') {
-      Swal.fire({
-        title: '¡Error!',
-        text: 'No tienes permisos para importar estudiantes.',
-        icon: 'error',
-        confirmButtonText: 'Aceptar',
-      });
-      return;
-    }
-
     try {
       setLoading(true);
-
-      const formattedStudentList = await Promise.all(studentList.map(async (student) => {
-        let profileImageUrl = student.profileImage;
-        if (student.profileImage instanceof File) {
-          profileImageUrl = await uploadToCloudinary(student.profileImage);
-        } else if (!profileImageUrl) {
-          profileImageUrl = 'https://i.pinimg.com/736x/24/f2/25/24f22516ec47facdc2dc114f8c3de7db.jpg';
+      let profileImageUrl = estudiante.profileImage;
+      if (estudiante.profileImage instanceof File) {
+        const validImageTypes = ['image/jpeg', 'image/png', 'image/heic', 'image/heif', 'image/webp', 'image/gif'];
+        if (!validImageTypes.includes(estudiante.profileImage.type)) {
+          throw new Error('La imagen de perfil debe ser un archivo JPEG, PNG, HEIC, WEBP o GIF.');
         }
-        return {
-          ...student,
-          name: capitalizeWords(student.name),
-          lastName: capitalizeWords(student.lastName),
-          guardianName: capitalizeWords(student.guardianName),
-          address: capitalizeWords(student.address),
-          profileImage: profileImageUrl,
-          birthDate: student.birthDate || '',
+        if (estudiante.profileImage.size > 5 * 1024 * 1024) {
+          throw new Error('La imagen de perfil no debe exceder los 5MB.');
+        }
+        profileImageUrl = null;
+      } else if (!profileImageUrl) {
+        profileImageUrl = 'https://i.pinimg.com/736x/24/f2/25/24f22516ec47facdc2dc114f8c3de7db.jpg';
+      }
+      const estudianteData = {
+        ...estudiante,
+        name: capitalizeWords(estudiante.name),
+        lastName: capitalizeWords(estudiante.lastName),
+        guardianName: capitalizeWords(estudiante.guardianName),
+        profileImage: profileImageUrl,
+        birthDate: estudiante.birthDate || '',
+      };
+
+      const formData = new FormData();
+      Object.keys(estudianteData).forEach(key => {
+        if (key === 'profileImage' && estudiante.profileImage instanceof File) {
+          formData.append('profileImageFile', estudiante.profileImage);
+        } else if (estudianteData[key] !== undefined && estudianteData[key] !== null) {
+          formData.append(key, typeof estudianteData[key] === 'boolean' ? estudianteData[key].toString() : estudianteData[key]);
+        }
+      });
+
+      const response = await axios.put(`/api/students/update/${estudiante._id}`, formData, {
+        withCredentials: true,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      if (response.status === 200 && response.data?.student) {
+        const updatedStudent = response.data.student;
+        const formattedStudent = {
+          ...updatedStudent,
+          name: capitalizeWords(updatedStudent.name),
+          lastName: capitalizeWords(updatedStudent.lastName),
+          guardianName: capitalizeWords(updatedStudent.guardianName),
+          birthDate: updatedStudent.birthDate ? new Date(updatedStudent.birthDate).toISOString().split('T')[0] : '',
         };
+        setEstudiantes(prev =>
+          prev.map(est => (est._id === estudiante._id ? formattedStudent : est))
+        );
+        cache.current.set('estudiantes', cache.current.get('estudiantes').map(est =>
+          est._id === estudiante._id ? formattedStudent : est
+        ));
+        cache.current.set(estudiante._id, formattedStudent);
+        if (selectedStudent?._id === estudiante._id) {
+          setSelectedStudent(formattedStudent);
+        }
+        return { success: true, student: formattedStudent };
+      } else {
+        throw new Error('Respuesta inesperada del servidor al actualizar el estudiante.');
+      }
+    } catch (error) {
+      console.error('updateEstudiante: Error updating student:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      throw error; // Let Student.jsx handle the error
+    } finally {
+      setLoading(false);
+    }
+  }, [auth, authReady, selectedStudent]);
+
+  const importStudents = useCallback(async (studentList) => {
+     if (!authReady || auth !== 'admin') {
+      throw new Error('No tienes permisos para importar estudiantes. Inicia sesión como administrador.');
+    }
+    try {
+      setLoading(true);
+      const formattedStudentList = studentList.map(student => ({
+        ...student,
+        name: capitalizeWords(student.name),
+        lastName: capitalizeWords(student.lastName),
+        guardianName: capitalizeWords(student.guardianName),
+        address: capitalizeWords(student.address),
       }));
+
+      for (const student of formattedStudentList) {
+        if (student.profileImage instanceof File) {
+          const validImageTypes = [
+            'image/jpeg',
+            'image/png',
+            'image/heic',
+            'image/heif',
+            'image/webp',
+            'image/gif',
+          ];
+          if (!validImageTypes.includes(student.profileImage.type)) {
+            throw new Error(`Imagen inválida para el estudiante con CUIL ${student.cuil || 'desconocido'}: debe ser un archivo JPEG, PNG, HEIC, WEBP o GIF.`);
+          }
+          if (student.profileImage.size > 5 * 1024 * 1024) {
+            throw new Error(`Imagen inválida para el estudiante con CUIL ${student.cuil || 'desconocido'}: no debe exceder los 5MB.`);
+          }
+        }
+      }
 
       const response = await axios.post('/api/students/import', { students: formattedStudentList }, {
         withCredentials: true,
@@ -508,117 +440,25 @@ const StudentsProvider = ({ children }) => {
           swalMessage += '</ul></li>';
         }
         swalMessage += '</ul>';
-      }
-
-      Swal.fire({
-        title: icon === 'success' ? '¡Éxito!' : '¡Error!',
-        html: swalMessage,
-        icon,
-        confirmButtonText: 'Aceptar',
-        width: '600px',
-        customClass: {
-          htmlContainer: 'swal2-html-container-scroll',
-        },
-      });
-
-      await obtenerEstudiantes();
+         }
+      return { success: icon === 'success', message: swalMessage, icon };
     } catch (error) {
-      console.error('Error al importar estudiantes:', error);
-      let errorMessage = 'Ha ocurrido un error al importar estudiantes.';
-      const rawMessage = error.response?.data?.message || error.response?.data?.error || error.message;
-
-      if (error.response?.data?.errors?.length > 0) {
-        errorMessage = '';
-        if (error.response.data.message) {
-          errorMessage += `${error.response.data.message}<br /><br />`;
-        }
-        errorMessage += '<strong>Errores encontrados:</strong><ul>';
-        const errorGroups = error.response.data.errors.reduce((acc, error) => {
-          const rowMatch = error.match(/Fila (\d+)/) || error.match(/Fila Desconocida/);
-          const row = rowMatch ? rowMatch[0] : 'Desconocida';
-          const dniMatch = error.match(/DNI (\d+)/);
-          const dni = dniMatch ? dniMatch[1] : 'Desconocido';
-          let errorType = 'Otros errores';
-          let customizedMessage = error;
-
-          if (error.includes('DNI ya existe')) {
-            errorType = 'DNI duplicado';
-            customizedMessage = `${row}, DNI ${dni}: El DNI ya está registrado. Usa un DNI diferente.`;
-          } else if (error.includes('Error al procesar la imagen')) {
-            errorType = 'Error en imagen';
-            customizedMessage = `${row}, DNI ${dni}: Hubo un problema al procesar la imagen de perfil. Asegúrate de que sea una URL válida.`;
-          } else if (error.includes('DNI debe contener')) {
-            errorType = 'DNI inválido';
-            customizedMessage = `${row}, DNI ${dni}: El DNI debe contener entre 7 y 9 dígitos.`;
-          } else if (error.includes('Faltan campos obligatorios')) {
-            errorType = 'Campos faltantes';
-            customizedMessage = `${row}, DNI ${dni}: ${error.split(': ')[1] || 'Faltan campos obligatorios.'}`;
-          } else if (error.includes('Formato de fecha de nacimiento inválido')) {
-            errorType = 'Fecha inválida';
-            customizedMessage = `${row}, DNI ${dni}: La fecha de nacimiento tiene un formato inválido. Usa el formato yyyy-MM-dd.`;
-          } else if (error.includes('Formato de correo electrónico no válido')) {
-            errorType = 'Correo inválido';
-            customizedMessage = `${row}, DNI ${dni}: El correo electrónico tiene un formato inválido.`;
-          } else if (error.includes('El número de teléfono del tutor')) {
-            errorType = 'Teléfono inválido';
-            customizedMessage = `${row}, DNI ${dni}: El número de teléfono del tutor debe tener entre 10 y 15 dígitos.`;
-          } else if (error.includes('Errores de validación')) {
-            errorType = 'Errores de validación';
-            customizedMessage = `${row}, DNI ${dni}: ${error.split(': ')[1] || 'Errores de validación en los datos.'}`;
-          }
-
-          if (!acc[errorType]) acc[errorType] = [];
-          acc[errorType].push(customizedMessage);
-          return acc;
-        }, {});
-
-        for (const [errorType, errorMessages] of Object.entries(errorGroups)) {
-          errorMessage += `<li><strong>${errorType}:</strong> ${errorMessages.length} casos<ul>`;
-          errorMessages.slice(0, 5).forEach(msg => {
-            errorMessage += `<li>${msg}</li>`;
-          });
-          if (errorMessages.length > 5) {
-            errorMessage += `<li>(y ${errorMessages.length - 5} errores más...)</li>`;
-          }
-          errorMessage += '</ul></li>';
-        }
-        errorMessage += '</ul>';
-      } else if (rawMessage.includes('DNI ya existe')) {
-        errorMessage = 'Uno o más estudiantes tienen un DNI duplicado. Por favor, revisa los DNIs en el archivo.';
-      } else if (rawMessage.includes('Error al procesar la imagen')) {
-        errorMessage = 'Hubo un problema al procesar una o más imágenes. Asegúrate de que sean URLs válidas.';
-      } else {
-        errorMessage = `Error interno: ${rawMessage}`;
-      }
-
-      Swal.fire({
-        title: '¡Error!',
-        html: errorMessage,
-        icon: 'error',
-        confirmButtonText: 'Aceptar',
-        width: '600px',
-        customClass: {
-          htmlContainer: 'swal2-html-container-scroll',
-        },
+      console.error('importStudents: Error importing students:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
       });
+      throw error; // Let Student.jsx handle the error
     } finally {
       setLoading(false);
     }
-  }, [auth, obtenerEstudiantes]);
+  }, [auth, authReady]);
+
   const countStudentsByState = useCallback((state) => {
     const studentsArray = Array.isArray(estudiantes) ? estudiantes : [];
     return studentsArray.filter(student => student.state === state).length;
   }, [estudiantes]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      await waitForAuth();
-      if (auth === 'admin' || auth === 'user') {
-        await obtenerEstudiantes();
-      }
-    };
-    fetchData();
-  }, [auth, obtenerEstudiantes, waitForAuth]);
 
   return (
     <StudentsContext.Provider

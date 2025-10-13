@@ -52,16 +52,16 @@ const EmailNotification = () => {
   ];
 
   const menuItems = [
-    { name: "Inicio", route: "/", icon: <FaHome /> },
-    { name: "Alumnos", route: "/student", icon: <FaUsers /> },
-    { name: "Cuotas", route: "/share", icon: <FaMoneyBill /> },
-    { name: "Movimientos", route: "/motion", icon: <FaExchangeAlt /> },
-    { name: "Asistencia", route: "/attendance", icon: <FaCalendarCheck /> },
-    { name: "Usuarios", route: "/user", icon: <FaUserCog /> },
-    { name: "Ajustes", route: "/settings", icon: <FaCog /> },
-    { name: "Envios de Mail", route: "/email-notifications", icon: <FaEnvelope /> },
-    { name: "Listado de Alumnos", route: "/liststudent", icon: <FaClipboardList /> },
-    { name: 'Lista de Movimientos', route: '/listeconomic', icon: <FaList />, category: 'finanzas' }
+    { name: 'Inicio', route: '/', icon: <FaHome />, category: 'principal' },
+    { name: 'Alumnos', route: '/student', icon: <FaUsers />, category: 'principal' },
+    { name: 'Cuotas', route: '/share', icon: <FaMoneyBill />, category: 'finanzas' },
+    { name: 'Reporte', route: '/listeconomic', icon: <FaList />, category: 'finanzas' },
+    { name: 'Movimientos', route: '/motion', icon: <FaExchangeAlt />, category: 'finanzas' },
+    { name: 'Asistencia', route: '/attendance', icon: <FaCalendarCheck />, category: 'principal' },
+    { name: 'Usuarios', route: '/user', icon: <FaUserCog />, category: 'configuracion' },
+    { name: 'Ajustes', route: '/settings', icon: <FaCog />, category: 'configuracion' },
+    { name: 'Envíos de Mail', route: '/email-notifications', icon: <FaEnvelope />, category: 'comunicacion' },
+    { name: 'Listado de Alumnos', route: '/liststudent', icon: <FaClipboardList />, category: 'informes' },
   ];
 
   useEffect(() => {
@@ -308,11 +308,20 @@ const EmailNotification = () => {
     setDisplayMessage("");
   };
 
+    const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+  };
+
   const handleSendToAll = async () => {
     if (selectedStudents.length === 0) {
       Swal.fire("Error", "Selecciona al menos un estudiante.", "error");
       return;
     }
+        // Convertir saltos de línea a HTML br tags para emails personalizados
+    const formatMessageForEmail = (message) => {
+      if (!message) return "Mensaje no especificado";
+      return message.replace(/\n/g, '<br>');
+    };
 
     const emails = isOverdueMode
       ? generateOverdueMessages(selectedStudents)
@@ -320,11 +329,9 @@ const EmailNotification = () => {
           {
             recipient: selectedStudents.map((s) => s.mail).join(","),
             subject,
-            message: displayMessage || "Mensaje no especificado",
+            message: formatMessageForEmail(displayMessage),
           },
-      ];
-
-    if (emails.length === 0) {
+        ];    if (emails.length === 0) {
       Swal.fire(
         "Error",
         "No hay mensajes válidos para enviar. Verifica que los estudiantes seleccionados tengan cuotas vencidas.",
@@ -371,7 +378,35 @@ const EmailNotification = () => {
           <div className="header-logo" onClick={() => navigate('/')}>
             <img src={logo} alt="Valladares Fútbol" className="logo-image" />
           </div>
-        
+               <div className="search-box">
+            <FaSearch className="search-symbol" />
+            <input
+              type="text"
+              placeholder="Buscar alumnos..."
+              className="search-field"
+              value={searchTerm}
+              onChange={handleSearchChange}
+            />
+            {searchTerm && (
+              <div className="student-dropdown">
+                {dataLoading ? (
+                  <div className="student-option">Cargando estudiantes...</div>
+                ) : filteredStudents.length ? (
+                  filteredStudents.map((student) => (
+                    <div
+                      key={student._id}
+                      className="student-option"
+                      onClick={() => handleSelectStudent(student)}
+                    >
+                      {student.name} {student.lastName} (DNI: {student.dni})
+                    </div>
+                  ))
+                ) : (
+                  <div className="student-option">No hay coincidencias</div>
+                )}
+              </div>
+            )}
+          </div>
           <div className="nav-right-section">
             <div
               className="profile-container"
@@ -443,44 +478,6 @@ const EmailNotification = () => {
         </aside>
         <main className={`main-content ${!isMenuOpen ? "expanded" : ""}`}>
           <section className="dashboard-header">
-           
-            <div className="search-wrapper">
-              <div className="search-container">
-                <FaSearch className="search-icon" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="search-input"
-                  disabled={loading || dataLoading}
-                  placeholder="Buscar estudiante..."
-                />
-                {searchTerm && (
-                  <button className="search-clear" onClick={() => setSearchTerm("")}>
-                    <FaTimesClear />
-                  </button>
-                )}
-              </div>
-              {searchTerm && (
-                <div className="student-dropdown">
-                  {dataLoading ? (
-                    <div className="student-option">Cargando estudiantes...</div>
-                  ) : filteredStudents.length ? (
-                    filteredStudents.map((student) => (
-                      <div
-                        key={student._id}
-                        className="student-option"
-                        onClick={() => handleSelectStudent(student)}
-                      >
-                        {student.name} {student.lastName} (DNI: {student.dni})
-                      </div>
-                    ))
-                  ) : (
-                    <div className="student-option">No hay coincidencias</div>
-                  )}
-                </div>
-              )}
-            </div>
           </section>
           <section className="student-selection">
             <div className="selected-students">
@@ -533,13 +530,24 @@ const EmailNotification = () => {
               disabled={loading || isOverdueMode || dataLoading}
               placeholder="Asunto..."
             />
-            <textarea
+                 <textarea
               value={displayMessage}
               onChange={(e) => setDisplayMessage(e.target.value)}
               className="email-message"
               disabled={loading || isOverdueMode || dataLoading}
-              placeholder="Mensaje..."
+              placeholder="Escribe tu mensaje aquí...&#10;&#10;Presiona Enter para crear saltos de línea."
+              rows={8}
+              style={{
+                whiteSpace: 'pre-wrap',
+                lineHeight: '1.5'
+              }}
             />
+               {displayMessage && !isOverdueMode && (
+              <div className="email-preview">
+                <h4 style={{marginBottom: '10px', color: 'var(--text-light)'}}>Vista previa del email:</h4>
+                <div className="preview-content" dangerouslySetInnerHTML={{ __html: displayMessage.replace(/\n/g, '<br>') }} />
+              </div>
+            )}
             <div className="email-actions">
               <button
                 className="quick-action-btn cancel-btn"

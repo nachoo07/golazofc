@@ -605,10 +605,12 @@ const EconomicMovements = () => {
             </div>
           </div>
           <div className="summary-section">
-            <p><span role="img" aria-label="movimientos">📊</span> <strong>Total Movimientos:</strong> {data.length}</p>
+            
             <p><span role="img" aria-label="neto">💰</span> <strong>Total Neto:</strong> ${netTotal.toLocaleString("es-ES")}</p>
             <p><span role="img" aria-label="ingresos">⬆️</span> <strong>Total Ingresos:</strong> ${ (breakdown.cuotas.total + Object.values(breakdown.pagos).reduce((sum, c) => sum + c.total, 0) + breakdown.ingresos.total).toLocaleString("es-ES") }</p>
             <p><span role="img" aria-label="egresos">⬇️</span> <strong>Total Egresos:</strong> ${ breakdown.egresos.total.toLocaleString("es-ES") }</p>
+            <p><span role="img" aria-label="efectivo">💵</span> <strong>Total Efectivo:</strong> ${ (breakdown.cuotas.efectivo + Object.values(breakdown.pagos).reduce((sum, c) => sum + c.efectivo, 0) + breakdown.ingresos.efectivo).toLocaleString("es-ES") }</p>
+            <p><span role="img" aria-label="transferencia">💳</span> <strong>Total Transferencia:</strong> ${ (breakdown.cuotas.transferencia + Object.values(breakdown.pagos).reduce((sum, c) => sum + c.transferencia, 0) + breakdown.ingresos.transferencia).toLocaleString("es-ES") }</p>
           </div>
           <div className="breakdown-section">
             <div>

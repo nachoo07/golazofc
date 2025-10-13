@@ -135,7 +135,6 @@
 .content-columns {
   display: grid;
   grid-template-columns: 2fr 1fr;
-  gap: 25px;
   align-items: start;
 }
 
@@ -165,10 +164,6 @@
   color: var(--text-light);
 }
 
-.current-date {
-  font-weight: 500;
-}
-
 .module-categories {
   margin-bottom: 20px;
 }
@@ -193,6 +188,13 @@
   color: var(--text-color);
 }
 
+.titulo-principal {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 20px; 
+  text-align: center;
+}
+
 .category-tab.active {
   background-color: #e31fa8;
   color: white;
@@ -206,7 +208,7 @@
 
 .modules-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(150px, 2fr));
   gap: 20px;
 }
 
@@ -501,6 +503,16 @@
 
   .modules-grid {
     gap: 10px;
+  }
+
+    .titulo-principal {
+    font-size: 1.5rem;
+    margin-bottom: 10px !important;
+  }
+  .panel-de-control {
+    background-color: var(--background-alt);
+    border-radius: var(--radius-sm);
+    margin-bottom: 10px !important;
   }
 
   .module-icon-container {

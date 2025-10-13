@@ -1,26 +1,7 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import {
-  FaBars,
-  FaList,
-  FaTimes,
-  FaUsers,
-  FaMoneyBill,
-  FaExchangeAlt,
-  FaUserCog,
-  FaCog,
-  FaEnvelope,
-  FaHome,
-  FaEdit,
-  FaTrash,
-  FaPlus,
-  FaSearch,
-  FaClipboardList,
-  FaUserCircle,
-  FaChevronDown,
-  FaArrowLeft,
-  FaTimes as FaTimesClear,
-} from "react-icons/fa";
+import {FaBars,FaList,FaTimes,FaUsers,FaMoneyBill,FaExchangeAlt,FaUserCog,FaCog,FaEnvelope,FaHome,FaEdit,FaTrash,
+  FaPlus,FaSearch,FaClipboardList,FaUserCircle,FaChevronDown,FaArrowLeft,FaTimes as FaTimesClear,} from "react-icons/fa";
 import { StudentsContext } from "../../context/student/StudentContext";
 import { PaymentContext } from "../../context/payment/PaymentContext";
 import { LoginContext } from "../../context/login/LoginContext";
@@ -32,8 +13,8 @@ import logo from '../../assets/logo.png';
 
 const PaymentStudent = () => {
   const { estudiantes } = useContext(StudentsContext);
-  const { payments, loadingPayments, fetchPaymentsByStudent, createPayment, deletePaymentConcept, updatePaymentConcept, concepts, loadingConcepts, fetchConcepts, createConcept } = useContext(PaymentContext);
-  const { logout, userData } = useContext(LoginContext);
+  const { payments, loadingPayments, fetchPaymentsByStudent, createPayment, deletePaymentConcept, updatePaymentConcept, concepts, loadingConcepts, fetchConcepts, createConcept, deleteConcept } = useContext(PaymentContext);
+  const { logout, userData, authReady, auth } = useContext(LoginContext);
   const { id } = useParams();
   const navigate = useNavigate();
   const [student, setStudent] = useState(null);
@@ -58,12 +39,12 @@ const PaymentStudent = () => {
     { name: "Inicio", route: "/", icon: <FaHome />, category: "principal" },
     { name: "Alumnos", route: "/student", icon: <FaUsers />, category: "principal" },
     { name: "Cuotas", route: "/share", icon: <FaMoneyBill />, category: "finanzas" },
+    { name: "Reporte", route: "/listeconomic", icon: <FaList />, category: "finanzas" },
     { name: "Movimientos", route: "/motion", icon: <FaExchangeAlt />, category: "finanzas" },
     { name: "Usuarios", route: "/user", icon: <FaUserCog />, category: "configuracion" },
     { name: "Ajustes", route: "/settings", icon: <FaCog />, category: "configuracion" },
     { name: "Envios de Mail", route: "/email-notifications", icon: <FaEnvelope />, category: "comunicacion" },
-    { name: "Listado de Alumnos", route: "/liststudent", icon: <FaClipboardList />, category: "informes" },
-    { name: 'Lista de Movimientos', route: '/listeconomic', icon: <FaList />, category: 'finanzas' }
+    { name: "Listado de Alumnos", route: "/liststudent", icon: <FaClipboardList />, category: "informes" }
   ];
 
   useEffect(() => {
@@ -72,9 +53,35 @@ const PaymentStudent = () => {
   }, [id, estudiantes]);
 
   useEffect(() => {
-    fetchPaymentsByStudent(id);
-    fetchConcepts();
-  }, [id, fetchPaymentsByStudent, fetchConcepts]);
+    if (!authReady) {
+      return;
+    }
+    if (auth !== 'admin') {
+      Swal.fire('¡Error!', 'No estás autorizado. Por favor, inicia sesión nuevamente.', 'error');
+      navigate('/login');
+      return;
+    }
+    const fetchData = async () => {
+      try {
+        await Promise.all([fetchPaymentsByStudent(id), fetchConcepts()]);
+      } catch (error) {
+        console.error('PaymentStudent: Error fetching data:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status,
+        });
+        if (error.response?.status === 401) {
+          Swal.fire('¡Error!', 'No estás autorizado. Por favor, inicia sesión nuevamente.', 'error');
+          navigate('/login');
+        } else if (error.response?.status === 404) {
+          Swal.fire('¡Error!', 'Estudiante o datos no encontrados.', 'error');
+        } else {
+          Swal.fire('¡Error!', error.response?.data?.message || 'No se pudieron cargar los datos.', 'error');
+        }
+      }
+    };
+    fetchData();
+  }, [id, fetchPaymentsByStudent, fetchConcepts, authReady, auth, navigate]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -92,7 +99,7 @@ const PaymentStudent = () => {
   }, []);
 
   const handleLogout = async () => {
-    logout();
+    await logout();
     navigate("/login");
     setIsMenuOpen(false);
   };
@@ -111,15 +118,27 @@ const PaymentStudent = () => {
     try {
       const normalizedConcept = newConcept.trim();
       if (!normalizedConcept) {
-        Swal.fire("¡Error!", "El concepto no puede estar vacío.", "error");
+        Swal.fire('¡Error!', 'El concepto no puede estar vacío.', 'error');
         return;
       }
       await createConcept(normalizedConcept);
-      Swal.fire("¡Éxito!", "Concepto creado correctamente.", "success");
+      Swal.fire('¡Éxito!', 'Concepto creado correctamente.', 'success');
       setNewConcept("");
       setShowConceptModal(false);
     } catch (error) {
-      Swal.fire("¡Error!", error.response?.data?.message || "No se pudo crear el concepto.", "error");
+      console.error('handleAddConcept: Error creating concept:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      if (error.response?.status === 401) {
+        Swal.fire('¡Error!', 'No estás autorizado. Por favor, inicia sesión nuevamente.', 'error');
+        navigate('/login');
+      } else if (error.response?.status === 400) {
+        Swal.fire('¡Error!', error.response?.data?.message || 'El concepto ya existe o es inválido.', 'error');
+      } else {
+        Swal.fire('¡Error!', error.response?.data?.message || 'No se pudo crear el concepto.', 'error');
+      }
     }
   };
 
@@ -134,11 +153,22 @@ const PaymentStudent = () => {
     });
     if (result.isConfirmed) {
       try {
-        await deleteConcept(conceptId);
-        Swal.fire("¡Éxito!", "Concepto eliminado correctamente.", "success");
+        await deleteConcept(conceptId.toString());
+        Swal.fire('¡Éxito!', 'Concepto eliminado correctamente.', 'success');
       } catch (error) {
-        Swal.fire("¡Error!", error.response?.data?.message || "No se pudo eliminar el concepto.", "error");
+        console.error('handleDeleteConcept: Error deleting concept:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status,
+        });
+        if (error.response?.status === 401) {
+          Swal.fire('¡Error!', 'No estás autorizado. Por favor, inicia sesión nuevamente.', 'error');
+          navigate('/login');
+        } else {
+          Swal.fire('¡Error!', error.response?.data?.message || 'No se pudo eliminar el concepto.', 'error');
+        }
       }
+    } else {
     }
   };
 
@@ -146,7 +176,7 @@ const PaymentStudent = () => {
     e.preventDefault();
     try {
       if (!formData.concept) {
-        Swal.fire("¡Error!", "Debe seleccionar un concepto.", "error");
+        Swal.fire('¡Error!', 'Debe seleccionar un concepto.', 'error');
         return;
       }
       const paymentData = {
@@ -155,19 +185,38 @@ const PaymentStudent = () => {
       };
       if (editMode) {
         await updatePaymentConcept(editPaymentId, paymentData);
-        Swal.fire("¡Éxito!", "El pago ha sido actualizado correctamente.", "success");
+        Swal.fire('¡Éxito!', 'El pago ha sido actualizado correctamente.', 'success');
         setEditMode(false);
         setEditPaymentId(null);
       } else {
         await createPayment(paymentData);
-        Swal.fire("¡Éxito!", "El pago ha sido registrado correctamente.", "success");
+        Swal.fire('¡Éxito!', 'El pago ha sido registrado correctamente.', 'success');
         await fetchPaymentsByStudent(id);
       }
       resetForm();
       setShowModal(false);
     } catch (error) {
-      Swal.fire("¡Error!", error.response?.data?.message || (editMode ? "No se pudo actualizar el pago." : "No se pudo registrar el pago."), "error");
+      console.error('handleSubmit: Error submitting payment:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      if (error.response?.status === 401) {
+        Swal.fire('¡Error!', 'No estás autorizado. Por favor, inicia sesión nuevamente.', 'error');
+        navigate('/login');
+      } else if (error.response?.status === 400) {
+        Swal.fire('¡Error!', error.response?.data?.message || 'Los datos del pago son inválidos.', 'error');
+      } else if (error.response?.status === 404) {
+        Swal.fire('¡Error!', 'Estudiante no encontrado.', 'error');
+      } else {
+        Swal.fire('¡Error!', error.response?.data?.message || (editMode ? 'No se pudo actualizar el pago.' : 'No se pudo registrar el pago.'), 'error');
+      }
     }
+  };
+
+  const handleViewShares = () => {
+    const queryString = location.search;
+    navigate(`/share/${id}${queryString}`);
   };
 
   const resetForm = () => {
@@ -227,11 +276,21 @@ const PaymentStudent = () => {
     if (result.isConfirmed) {
       try {
         await deletePaymentConcept(paymentId, id);
-        Swal.fire("¡Éxito!", "El pago ha sido eliminado correctamente.", "success");
+        Swal.fire('¡Éxito!', 'El pago ha sido eliminado correctamente.', 'success');
       } catch (error) {
-        Swal.fire("¡Error!", error.response?.data?.message || "No se pudo eliminar el pago.", "error");
+        console.error('handleDelete: Error deleting payment:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status,
+        });
+        if (error.response?.status === 401) {
+          Swal.fire('¡Error!', 'No estás autorizado. Por favor, inicia sesión nuevamente.', 'error');
+          navigate('/login');
+        } else {
+          Swal.fire('¡Error!', error.response?.data?.message || 'No se pudo eliminar el pago.', 'error');
+        }
       }
-    }
+    } 
   };
 
   const formatDate = (dateString) => {
@@ -242,7 +301,7 @@ const PaymentStudent = () => {
       const [year, month, day] = fullDate.split('-');
       return `${day}-${month}-${year}`;
     } catch (error) {
-      console.error("Error al formatear fecha:", error);
+      console.error("formatDate: Error formatting date:", error);
       return dateString;
     }
   };
@@ -251,7 +310,15 @@ const PaymentStudent = () => {
   const today = new Date().toISOString().split("T")[0];
 
   if (!student) {
-    return <div className="app-container">No se encontró el estudiante. Verifica el ID o los datos en StudentsContext.</div>;
+    return (
+      <div className="app-container error-container">
+        <h2>Estudiante no encontrado</h2>
+        <p>El estudiante con ID {id} no está disponible. Verifica los datos o vuelve a la lista de estudiantes.</p>
+        <button className="btn-back" onClick={() => navigate('/student')}>
+          Volver a la lista de estudiantes
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -338,90 +405,73 @@ const PaymentStudent = () => {
                   <h1 className="title-payment-student">Pagos de {student.name} {student.lastName}</h1>
                 </div>
               </section>
-              {windowWidth > 576 && (
-                <section className="search-section">
-                  <div className="search-container">
-                    <FaSearch className="search-icon" />
-                    <input
-                      type="text"
-                      placeholder="Buscar pagos..."
-                      className="search-input"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      disabled={loadingPayments || loadingConcepts}
-                    />
-                    {searchQuery && (
-                      <button 
-                        className="search-clear" 
-                        onClick={() => setSearchQuery("")}
-                        disabled={loadingPayments || loadingConcepts}
-                      >
-                        <FaTimesClear />
-                      </button>
-                    )}
-                  </div>
-                </section>
-              )}
-                <table className="payment-table">
-                  <thead>
+             
+              <table className="payment-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Concepto</th>
+                    <th>Monto</th>
+                    <th>Fecha</th>
+                    <th>Método</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loadingPayments ? (
                     <tr>
-                      <th>#</th>
-                      <th>Concepto</th>
-                      <th>Monto</th>
-                      <th>Fecha</th>
-                      <th>Método</th>
-                      <th>Acciones</th>
+                      <td colSpan="6" className="no-data-row-payment">
+                        Cargando pagos...
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {payments.length === 0 ? (
-                      <tr>
-                        <td colSpan="6" className="no-data-row-payment">
-                          No hay pagos registrados.
-                        </td>
-                      </tr>
-                    ) : (
-                      payments
-                        .filter((payment) => payment.concept.toLowerCase().includes(searchQuery.toLowerCase()))
-                        .map((payment, index) => (
-                          <tr key={payment._id}>
-                            <td>{index + 1}</td>
-                            <td>{payment.concept.charAt(0).toUpperCase() + payment.concept.slice(1)}</td>
-                            <td>${payment.amount.toLocaleString("es-ES")}</td>
-                            <td>{formatDate(payment.paymentDate)}</td>
-                            <td>{payment.paymentMethod}</td>
-                            <td>
-                              <div className="btn-action-container">
-                                <button
-                                  className="action-btn-student"
-                                  onClick={() => handleEdit(payment)}
-                                  aria-label="Editar pago"
-                                  disabled={loadingPayments || loadingConcepts}
-                                >
-                                  <FaEdit />
-                                </button>
-                                <button
-                                  className="action-btn-student"
-                                  onClick={() => handleDelete(payment._id)}
-                                  aria-label="Eliminar pago"
-                                  disabled={loadingPayments || loadingConcepts}
-                                >
-                                  <FaTrash />
-                                </button>
-                                <SendPaymentVoucherEmail
-                                  student={student}
-                                  payment={payment}
-                                  onSendingStart={() => {}}
-                                  onSendingEnd={() => {}}
-                                  disabled={loadingPayments || loadingConcepts}
-                                />
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                    )}
-                  </tbody>
-                </table>
+                  ) : payments.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className="no-data-row-payment">
+                        No hay pagos registrados.
+                      </td>
+                    </tr>
+                  ) : (
+                    payments
+                      .filter((payment) => payment.concept.toLowerCase().includes(searchQuery.toLowerCase()))
+                      .map((payment, index) => (
+                        <tr key={payment._id}>
+                          <td>{index + 1}</td>
+                          <td>{payment.concept.charAt(0).toUpperCase() + payment.concept.slice(1)}</td>
+                          <td>${payment.amount.toLocaleString("es-ES")}</td>
+                          <td>{formatDate(payment.paymentDate)}</td>
+                          <td>{payment.paymentMethod}</td>
+                          <td>
+                            <div className="btn-action-container">
+                              <button
+                                className="action-btn-student"
+                                onClick={() => handleEdit(payment)}
+                                aria-label="Editar pago"
+                                disabled={loadingPayments || loadingConcepts}
+                              >
+                                <FaEdit />
+                              </button>
+                              <button
+                                className="action-btn-student"
+                                onClick={() => handleDelete(payment._id)}
+                                aria-label="Eliminar pago"
+                                disabled={loadingPayments || loadingConcepts}
+                              >
+                                <FaTrash />
+                              </button>
+                              <SendPaymentVoucherEmail
+                                student={student}
+                                payment={payment}
+                                onSendingStart={() => {}}
+                                onSendingEnd={() => {}}
+                                disabled={loadingPayments || loadingConcepts}
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                  )}
+                </tbody>
+              </table>
             </div>
             <div className="sidebar-column-payment">
               <div className="dashboard-sidebar-payment">
@@ -445,6 +495,13 @@ const PaymentStudent = () => {
                     >
                       <FaPlus className="btn-icon" />
                       <span>Crear Concepto</span>
+                    </button>
+                      <button 
+                      className="quick-action-btn"
+                      onClick={handleViewShares}
+                    >
+                      <FaMoneyBill className="btn-icon" />
+                      Cuotas
                     </button>
                     <button 
                       className="quick-action-btn" 
@@ -489,7 +546,7 @@ const PaymentStudent = () => {
             </div>
             <div className="modal-body">
               <form onSubmit={handleSubmit}>
-                <div className="form-row ">
+                <div className="form-row">
                   <label>Concepto</label>
                   <select 
                     name="concept" 
@@ -593,7 +650,7 @@ const PaymentStudent = () => {
                     value={newConcept}
                     onChange={handleNewConceptChange}
                     required
-                    placeholder="Ej: Liga de Sierra Buena"
+                    placeholder="Ej: Liga de Yerba Buena"
                     maxLength="50"
                     disabled={loadingPayments || loadingConcepts}
                   />
@@ -601,7 +658,7 @@ const PaymentStudent = () => {
                 <div className="modal-actions">
                   <button 
                     type="submit" 
-                    className="btn-submit-concept"
+                    className="btn-submit"
                     disabled={loadingPayments || loadingConcepts}
                   >
                     Guardar Concepto
@@ -610,10 +667,10 @@ const PaymentStudent = () => {
               </form>
               <h3 className="titulo-concepto">Conceptos Existentes</h3>
               <div className="concept-list">
-                {concepts.length === 0 ? (
-                  <p className="no-data">
-                    {loadingConcepts ? "Cargando conceptos..." : "No hay conceptos registrados."}
-                  </p>
+                {loadingConcepts ? (
+                  <p className="no-data">Cargando conceptos...</p>
+                ) : concepts.length === 0 ? (
+                  <p className="no-data">No hay conceptos registrados.</p>
                 ) : (
                   concepts.map((concept) => (
                     <div key={concept._id} className="concept-item">
@@ -622,7 +679,7 @@ const PaymentStudent = () => {
                       </span>
                       <button
                         className="concept-delete-btn"
-                        onClick={() => handleDeleteConcept(concept._id, concept.name.charAt(0).toUpperCase() + concept.name.slice(1))}
+                        onClick={() => handleDeleteConcept(concept._id.toString(), concept.name.charAt(0).toUpperCase() + concept.name.slice(1))}
                         aria-label={`Eliminar concepto ${concept.name}`}
                         disabled={loadingPayments || loadingConcepts}
                       >

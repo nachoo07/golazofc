@@ -8,10 +8,10 @@ export const MotionContext = createContext();
 export const MotionProvider = ({ children }) => {
   const [motions, setMotions] = useState([]);
   const [loading, setLoading] = useState(false);
-  const { auth, waitForAuth } = useContext(LoginContext); // Añadimos waitForAuth
+  const { auth, authReady } = useContext(LoginContext); // Añadimos waitForAuth
 
   const fetchMotions = useCallback(async () => {
-    if (auth !== 'admin') return [];
+    if (!authReady || auth !== 'admin') return [];
     try {
       setLoading(true);
       const response = await axios.get('/api/motions/', { withCredentials: true });
@@ -29,10 +29,10 @@ export const MotionProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [auth]);
+  }, [auth, authReady]);
 
   const createMotion = useCallback(async (motion) => {
-    if (auth !== 'admin') return null;
+    if (!authReady || auth !== 'admin') return null;
     try {
       const response = await axios.post('/api/motions/create', motion, { withCredentials: true });
       const newMotion = response.data;
@@ -49,10 +49,10 @@ export const MotionProvider = ({ children }) => {
       Swal.fire('¡Error!', 'Ha ocurrido un error al crear el movimiento', 'error');
       throw error;
     }
-  }, [auth]);
+  }, [auth, authReady]);
 
   const updateMotion = useCallback(async (id, updatedMotion) => {
-    if (auth !== 'admin') return null;
+    if (!authReady || auth !== 'admin') return null;
     try {
       const response = await axios.put(`/api/motions/update/${id}`, updatedMotion, { withCredentials: true });
       const updated = response.data;
@@ -64,10 +64,10 @@ export const MotionProvider = ({ children }) => {
       Swal.fire('¡Error!', 'Ha ocurrido un error al actualizar el movimiento', 'error');
       throw error;
     }
-  }, [auth]);
+  }, [auth, authReady]);
 
   const deleteMotion = useCallback(async (id) => {
-    if (auth !== 'admin') return;
+    if (!authReady || auth !== 'admin') return;
     try {
       const confirmacion = await Swal.fire({
         title: '¿Estás seguro que deseas eliminar el movimiento?',
@@ -89,10 +89,10 @@ export const MotionProvider = ({ children }) => {
       Swal.fire('¡Error!', 'Ha ocurrido un error al eliminar el movimiento', 'error');
       throw error;
     }
-  }, [auth]);
+  }, [auth, authReady]);
 
   const getMotionsByDate = useCallback(async (date) => {
-    if (auth !== 'admin') return [];
+    if (!authReady || auth !== 'admin') return [];
     try {
       setLoading(true);
       const response = await axios.get(`/api/motions/date/${date}`, { withCredentials: true });
@@ -105,10 +105,10 @@ export const MotionProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [auth]);
+  }, [auth, authReady]);
 
   const getMotionsByDateRange = useCallback(async (startDate, endDate) => {
-    if (auth !== 'admin') return [];
+    if (!authReady || auth !== 'admin') return [];
     try {
       setLoading(true);
       const response = await axios.get(
@@ -124,7 +124,7 @@ export const MotionProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [auth]);
+  }, [auth, authReady]);
 
   // Carga inicial de movimientos
   useEffect(() => {
@@ -137,7 +137,7 @@ export const MotionProvider = ({ children }) => {
       }
     };
     fetchData();
-  }, [auth, fetchMotions, waitForAuth]); // Añadimos waitForAuth como dependencia
+  }, [auth, fetchMotions, authReady]); // Añadimos waitForAuth como dependencia
 
   return (
     <MotionContext.Provider

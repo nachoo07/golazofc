@@ -39,7 +39,7 @@
 .title-payment-student {
   font-size: 35px !important;
   font-weight: 800;
-  color: #ea268f;
+  color: #e31fa8;
   position: relative;
   display: inline-block;
 }
@@ -49,7 +49,7 @@
   display: block;
   width: 100%;
   height: 5px;
-  background: linear-gradient(90deg, #ea268f, #b71b6e);
+  background: linear-gradient(90deg, #e31fa8, #a21a87);
   border-radius: 3px;
   position: absolute;
   left: 0;
@@ -85,7 +85,7 @@
 }
 
 .payment-table th {
-  background: #ea268f;
+  background: #e31fa8;
   color: white;
   font-weight: 600;
   
@@ -106,7 +106,6 @@
   justify-content: center;
   gap: 10px;
 }
-
 
 .payment-summary {
   background-color: var(--card-bg);
@@ -149,7 +148,7 @@
 }
 
 .modal-header-payment {
-    background: linear-gradient(90deg, #ea268f 60%, #b71b6e 100%);
+  background: linear-gradient(90deg, #e31fa8 60%, #a21a87 100%);
   color: white;
   padding: 15px;
   display: flex;
@@ -161,7 +160,7 @@
 }
 
 .modal-header-concept {
-  background-color: #ea268f;
+  background-color: #e31fa8;
   color: white;
   padding: 15px 20px;
   display: flex;
@@ -186,6 +185,9 @@
 .modal-body {
   padding: 20px;
   background-color: white;
+}
+
+.content-modal:not(.concept-modal) .modal-body {
   border-bottom-right-radius: 10px;
   border-bottom-left-radius: 10px;
 }
@@ -246,33 +248,33 @@
 }
 
 .btn-subit-concept {
-   background: linear-gradient(90deg, #ea268f 60%, #b71b6e 100%);
+   background: linear-gradient(90deg, #e31fa8 60%, #a21a87 100%);
   color: #fff;
   border: none;
 }
 
 .btn-submit {
-   background: linear-gradient(90deg, #ea268f 60%, #b71b6e 100%);
+   background: linear-gradient(90deg, #e31fa8 60%, #a21a87 100%);
   color: #fff;
   border: none;
 }
 
 .btn-submit:hover {
-    background: linear-gradient(90deg, #b71b6e 60%, #ea268f 100%);
+    background: linear-gradient(90deg, #a21a87 60%, #e31fa8 100%);
   color: #fff;
   box-shadow: 0 4px 16px rgba(234,38,143,0.13);
 }
 
 .btn-cancel {
  background: #f1f1f1;
-  color: #b71b6e;
-  border: 1.5px solid #ea268f;
+  color: #a21a87;
+  border: 1.5px solid #e31fa8;
 }
 
 .btn-cancel:hover {
    background: #f1f1f1;
-  color: #b71b6e;
-  border: 1.5px solid #ea268f;
+  color: #a21a87;
+  border: 1.5px solid #e31fa8;
 }
 
 .concept-modal {
@@ -307,16 +309,14 @@
   font-size: 14px;
   font-weight: normal;
   color: #333;
-
 }
 
 .concept-delete-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 15px;
-  height: 15px;
-  background-color: #ea268f;
+  height: 20px;
+  background-color: #e31fa8;
   color: white;
   border: none;
   border-radius: 15px;
@@ -342,6 +342,10 @@
 .modal-footer {
   text-align: right;
   padding: 20px;
+   background-color: white;
+  border-bottom-left-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+  border-top: 1px solid var(--border-color);
 }
 
 .dashboard-sidebar-payment {

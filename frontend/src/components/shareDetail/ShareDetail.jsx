@@ -41,9 +41,6 @@ const ShareDetail = () => {
   const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
   const availableYears = ["2025", "2026", "2027"];
 
-  const queryParams = new URLSearchParams(location.search);
-  const page = queryParams.get('page') || 1;
-
   const menuItems = [
     { name: "Inicio", route: "/", icon: <FaHome />, category: "principal" },
     { name: "Alumnos", route: "/student", icon: <FaUsers />, category: "principal" },
@@ -230,6 +227,11 @@ const ShareDetail = () => {
     }
   };
 
+    const handleViewPayments = () => {
+    const queryString = location.search;
+    navigate(`/paymentstudent/${studentId}${queryString}`);
+  };
+
   const handleSearchChange = (e) => {
     setSearchQuery(e.target.value);
   };
@@ -241,7 +243,9 @@ const ShareDetail = () => {
     setIsProfileOpen(false);
   };
 
-  const handleBack = () => navigate(`/share?page=${page}`);
+    const handleBack = () => {
+    navigate(`/share${location.search}`);
+  };
 
   const handleAlertClose = () => {
     setShowAlert(false);
@@ -340,7 +344,7 @@ const ShareDetail = () => {
             <>
               <section className="dashboard-welcome">
                 <div className="welcome-text">
-                  <h1>Cuotas de {selectedStudent.name} {selectedStudent.lastName}</h1>
+                  <h1 className="title-dashboard-share">Cuotas de {selectedStudent.name} {selectedStudent.lastName}</h1>
                 </div>
               </section>
               {showAlert && (
@@ -363,6 +367,12 @@ const ShareDetail = () => {
                     ))}
                   </div>
                   <div className="action-buttons">
+                        <button
+                      className="add-btn-detail-share"
+                      onClick={handleViewPayments}
+                    >
+                      <FaMoneyBillWave /> Ver Pagos
+                    </button>
                     <button className="add-btn" onClick={handleCreateClick} disabled={isLoading}>
                       <FaPlus /> Crear Cuota
                     </button>

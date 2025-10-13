@@ -244,40 +244,6 @@ const Motion = () => {
           <div className="welcome-text">
             <h1>Movimientos</h1>
           </div>
-          {windowWidth > 576 && (
-            <section className="search-section">
-              <div className="search-container">
-                <FaSearch className="search-icon" />
-                <input
-                  type="text"
-                  placeholder="Buscar movimientos..."
-                  className="search-input"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                {searchTerm && (
-                  <button
-                    className="search-clear"
-                    onClick={() => setSearchTerm('')}
-                  >
-                    <FaTimesClear />
-                  </button>
-                )}
-              </div>
-            </section>
-          )}
-          {showAlert && (
-            <div className="alert alert-warning" role="alert">
-              {alertMessage}
-              <button
-                type="button"
-                className="close"
-                onClick={() => setShowAlert(false)}
-              >
-                ×
-              </button>
-            </div>
-          )}
           <div className="motion-date-filter">
             <div className="motion-filter-section">
               <div className="motion-filter-row">

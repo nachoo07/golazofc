@@ -9,16 +9,39 @@
   margin-top: 0;
 }
 
+/* Inputs de fecha más compactos */
+.filter-group input[type="date"] {
+  padding: 8px 12px;
+  border: 1px solid #e31fa8;
+  border-radius: 8px;
+  width: 100%;
+  font-size: 0.9rem;
+  background: #fff;
+  color: #333;
+  font-weight: 400;
+  transition: border-color 0.2s ease;
+  cursor: pointer;
+}
+
+.filter-group input[type="date"]:focus {
+  outline: none;
+  border-color: #e31fa8;
+  box-shadow: 0 0 3px rgba(234, 38, 143, 0.3);
+}
+
+.filter-group input[type="date"]:hover {
+  border-color: #e31fa8;
+}
+
 .main-content {
   flex: 1;
   padding: 25px;
   overflow-y: auto;
   background-color: var(--background-color);
 }
-.filter-action-list{
-  display: flex;
-  gap: 20px;
-  margin-bottom: 10px;
+
+.club-filters {
+  margin: 10px;
 }
 .students-payment th, .students-payment td {
   padding: 8px;
@@ -94,25 +117,43 @@
   color: var(--text-light);
 }
 
+/* Botones de descarga simples con colores del sistema */
 .download-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
+  align-items: center;
 }
 
 .download-btn {
   display: flex;
   align-items: center;
+  gap: 6px;
   padding: 8px 16px;
   background-color: #e31fa8;
   color: white;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: 6px;
   cursor: pointer;
-  transition: var(--transition);
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: background-color 0.2s ease;
 }
 
-.download-btn:hover {
+.download-btn:hover:not(:disabled) {
   background-color: #a21a87;
+}
+
+.download-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.download-btn.pdf-btn {
+  background-color: #6c757d;
+}
+
+.download-btn.pdf-btn:hover:not(:disabled) {
+  background-color: #545b62;
 }
 
 .search-box {
@@ -141,28 +182,75 @@
   transition: border-color 0.3s ease;
 }
 
-/* Agregar al final de listStudent.css */
-.filter-select-list {
+/* Selects más compactos con colores del sistema */
+.filter-select {
   padding: 8px 12px;
-  border: 1px solid #ced4da;
-  border-radius: 20px;
-  font-size: 16px;
-  transition: border-color 0.3s ease;
-  background-color: white;
+  border: 1px solid #e31fa8;
+  border-radius: 8px;
+  width: 100%;
+  font-size: 0.9rem;
+  background: #fff;
+  color: #333;
+  font-weight: 400;
   cursor: pointer;
+  transition: border-color 0.2s ease;
+  appearance: none;
+  background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 5"><path fill="%23e31fa8" d="M2 0L0 2h4zm0 5L0 3h4z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px;
+  padding-right: 30px;
 }
 
-.filter-select-list:focus {
+.filter-select:focus {
   outline: none;
   border-color: #e31fa8;
-  box-shadow: 0 0 5px rgba(4, 164, 92, 0.5);
+  box-shadow: 0 0 3px rgba(234, 38, 143, 0.3);
 }
 
-.category-filters,
-.concept-filters {
+.filter-select:hover {
+  border-color: #e31fa8;
+}
+
+/* Opciones del select */
+.filter-select option {
+  background: white;
+  color: #333;
+  padding: 8px;
+  font-weight: 400;
+}
+
+.filter-select option:checked {
+  background: #e31fa8;
+  color: white;
+}
+
+/* Contenedor de filtros más compacto */
+.filter-group {
   display: flex;
-  align-items: center;
-  gap: 15px;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 125px !important;
+  flex: 1;
+}
+
+.filter-group label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #e31fa8;
+  margin-bottom: 2px;
+}
+
+/* Contenedor general de filtros en una fila */
+.filter-actions.list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 15px 0;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
 }
 
 
@@ -181,23 +269,36 @@
     font-size: 0.9rem;
   }
 
- .download-actions {
+  .download-actions {
     width: 100%;
     flex-direction: row;
+    gap: 6px;
   }
 
   .download-btn {
     width: 50%;
     justify-content: center;
+    padding: 8px 12px;
+    font-size: 0.85rem;
   }
 
-  .filter-select-list {
-  padding: 6px;
-  font-size: 14px;
-}
-
-.list{
-  gap: 10px;
-  margin: 0px;
-}
+  .filter-actions.list {
+    gap: 8px;
+    padding: 10px;
+    flex-direction: column;
+  }
+  
+  .filter-group {
+    min-width: 100%;
+  }
+  
+  .filter-select,
+  .filter-group input[type="date"] {
+    font-size: 0.85rem;
+    padding: 6px 10px;
+  }
+  
+  .filter-group label {
+    font-size: 0.8rem;
+  }
 }

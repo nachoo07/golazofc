@@ -25,6 +25,7 @@ const Share = () => {
   const [statusFilter, setStatusFilter] = useState("todos");
   const [currentPage, setCurrentPage] = useState(1);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [isInitialMount, setIsInitialMount] = useState(true);
   const itemsPerPage = 10;
 
   const menuItems = [
@@ -50,25 +51,41 @@ const Share = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
+   useEffect(() => {
+    // Leer query params
     const queryParams = new URLSearchParams(location.search);
-    const page = parseInt(queryParams.get('page')) || 1;
+    const page = parseInt(queryParams.get("page")) || 1;
+    const search = queryParams.get("search") || "";
+    const state = queryParams.get("state") || "todos";
+
     setCurrentPage(page);
+    setSearchTerm(search);
+    setStatusFilter(state);
+
+    // Cargar datos
     obtenerEstudiantes();
     obtenerCuotas();
-    const handleResize = () => {
-      const newWidth = window.innerWidth;
-      setWindowWidth(newWidth);
-      if (newWidth <= 576) {
-        setIsMenuOpen(false);
-      } else {
-        setIsMenuOpen(true);
-      }
-    };
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [obtenerEstudiantes, obtenerCuotas, location.search]);
+
+    // Marcar que el montaje inicial ha finalizado
+    setIsInitialMount(false);
+  }, [obtenerEstudiantes, obtenerCuotas]);
+
+   useEffect(() => {
+    if (isInitialMount) return; // Evitar actualizar la URL durante el montaje inicial
+
+    // Actualizar la URL con los filtros actuales
+    const queryParams = new URLSearchParams();
+    if (currentPage !== 1) queryParams.set("page", currentPage);
+    if (searchTerm) queryParams.set("search", searchTerm);
+    if (statusFilter !== "todos") queryParams.set("state", statusFilter);
+
+    const queryString = queryParams.toString();
+    const newUrl = queryString ? `/share?${queryString}` : "/share";
+
+    if (location.pathname + location.search !== newUrl) {
+      navigate(newUrl, { replace: true });
+    }
+  }, [currentPage, searchTerm, statusFilter, navigate, location.pathname, location.search, isInitialMount]);
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
@@ -85,24 +102,51 @@ const Share = () => {
       const matchesSearch = fullName.includes(searchNormalized) || dniSearch;
 
      const studentCuotas = cuotas.filter((cuota) => cuota.student?._id === student._id);
-    let lastCuota = null;
-    if (studentCuotas.length > 0) {
-      lastCuota = studentCuotas.reduce((latest, current) =>
-        new Date(current.date) > new Date(latest.date) ? current : latest,
-        studentCuotas[0]
-      );
-    }
+     const hascuotas = studentCuotas.length > 0;
+      const lastCuota = hascuotas
+        ? studentCuotas.reduce((latest, current) =>
+            new Date(current.date) > new Date(latest.date) ? current : latest,
+            studentCuotas[0]
+          )
+        : null;
+
       const matchesStatus =
         statusFilter === "todos" ||
-        (lastCuota && lastCuota.state.toLowerCase() === statusFilter.toLowerCase()) ||
-        (!lastCuota && statusFilter === "sin cuotas");
+        (!hascuotas && statusFilter === "sin cuotas") ||
+        (statusFilter === "pagado" && lastCuota?.state.toLowerCase() === "pagado") ||
+        (statusFilter === "pendiente" && studentCuotas.some(cuota => cuota.state.toLowerCase() === "pendiente")) ||
+        (statusFilter === "vencido" && studentCuotas.some(cuota => cuota.state.toLowerCase() === "vencido"));
+
       return matchesSearch && matchesStatus;
     });
   }, [estudiantes, cuotas, searchTerm, statusFilter]);
 
-  const handleViewCuotas = async (studentId) => {
+    const handleViewCuotas = async (studentId) => {
     await obtenerCuotasPorEstudiante(studentId);
-    navigate(`/share/${studentId}?page=${currentPage}`);
+    const queryParams = new URLSearchParams();
+    if (currentPage !== 1) queryParams.set("page", currentPage);
+    if (searchTerm) queryParams.set("search", searchTerm);
+    if (statusFilter !== "todos") queryParams.set("state", statusFilter);
+    const queryString = queryParams.toString();
+    navigate(`/share/${studentId}${queryString ? `?${queryString}` : ""}`);
+  };
+
+    const handleViewDetail = (studentId) => {
+    const queryParams = new URLSearchParams();
+    if (currentPage !== 1) queryParams.set("page", currentPage);
+    if (searchTerm) queryParams.set("search", searchTerm);
+    if (statusFilter !== "todos") queryParams.set("state", statusFilter);
+    const queryString = queryParams.toString();
+    navigate(`/detailstudent/${studentId}${queryString ? `?${queryString}` : ""}`);
+  };
+
+  const handleViewPayments = (studentId) => {
+    const queryParams = new URLSearchParams();
+    if (currentPage !== 1) queryParams.set("page", currentPage);
+    if (searchTerm) queryParams.set("search", searchTerm);
+    if (statusFilter !== "todos") queryParams.set("state", statusFilter);
+    const queryString = queryParams.toString();
+    navigate(`/paymentstudent/${studentId}${queryString ? `?${queryString}` : ""}`);
   };
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
@@ -337,18 +381,26 @@ const Share = () => {
                           <td>{student.dni}</td>
                           <td>{cuotaStatus}</td>
                           <td className="action-buttons">
-                            <button
+                         <button
                               className="action-btn-share"
                               onClick={() => handleViewCuotas(student._id)}
+                              title="Ver Cuotas"
+                            >
+                              <FaClipboardList />
+                            </button>
+                            <button
+                              className="action-btn-student"
+                              onClick={() => handleViewDetail(student._id)}
+                              title="Ver Detalle Alumno"
                             >
                               <FaUserCircle />
                             </button>
-
-                            <button className="action-btn-student" title="Pagos" onClick={() => navigate(`/paymentstudent/${student._id}?page=${currentPage}&studentId=${student._id}`)}>
-                              <FaClipboardList />
-                            </button>
-                            <button className="action-btn-student" title="Ver Detalles" onClick={() => navigate(`/detailstudent/${student._id}`)}>
-                              <FaUserCircle />
+                            <button
+                              className="action-btn-student"
+                              onClick={() => handleViewPayments(student._id)}
+                              title="Ver Pagos"
+                            >
+                              <FaMoneyBill />
                             </button>
                           </td>
                         </tr>
