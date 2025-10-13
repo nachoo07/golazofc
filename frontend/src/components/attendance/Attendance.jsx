@@ -7,7 +7,7 @@ import Swal from 'sweetalert2';
 import {
   FaBars, FaUsers, FaMoneyBill, FaExchangeAlt, FaList,
   FaCalendarCheck, FaUserCog, FaCog, FaEnvelope, FaHome,
-  FaUserCircle, FaChevronDown, FaTimes, FaClipboardList, FaSearch, FaTimes as FaTimesClear,
+  FaUserCircle, FaChevronDown, FaTimes, FaClipboardList, FaSearch,
   FaFileExport
 } from 'react-icons/fa';
 import DatePicker from 'react-datepicker';
@@ -68,12 +68,12 @@ const Attendance = () => {
     ])
   ];
 
-  // Agregué useEffect para cargar estudiantes cuando cambie la autenticación
-useEffect(() => {
-  if (auth === 'admin' || auth === 'user') {
-    obtenerEstudiantes();
-  }
-}, [auth, obtenerEstudiantes]);
+  // useEffects
+  useEffect(() => {
+    if (auth === 'admin' || auth === 'user') {
+      obtenerEstudiantes();
+    }
+  }, [auth, obtenerEstudiantes]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -531,7 +531,7 @@ useEffect(() => {
                 />
                 {searchTerm && (
                   <button className="mobile-search-clear" onClick={() => setSearchTerm('')}>
-                    <FaTimesClear />
+                    <FaTimes />
                   </button>
                 )}
               </div>
