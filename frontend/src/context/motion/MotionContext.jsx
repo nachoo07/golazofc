@@ -8,7 +8,7 @@ export const MotionContext = createContext();
 export const MotionProvider = ({ children }) => {
   const [motions, setMotions] = useState([]);
   const [loading, setLoading] = useState(false);
-  const { auth, authReady } = useContext(LoginContext); // Añadimos waitForAuth
+  const { auth, authReady, waitForAuth } = useContext(LoginContext); // Añadimos waitForAuth
 
   const fetchMotions = useCallback(async () => {
     if (!authReady || auth !== 'admin') return [];

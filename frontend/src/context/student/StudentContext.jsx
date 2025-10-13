@@ -59,17 +59,6 @@ const StudentsProvider = ({ children }) => {
     }
   };
 
-   useEffect(() => {
-  if (!auth || !authReady) {
-    cache.current.clear();
-    setEstudiantes([]);
-    setSelectedStudent(null);
-  } else if (authReady && (auth === 'admin' || auth === 'user')) {
-    // Cargar estudiantes automáticamente cuando la autenticación está lista
-    obtenerEstudiantes();
-  }
-}, [auth, authReady, obtenerEstudiantes]);
-
   const obtenerEstudiantes = useCallback(async () => {
     if (!authReady) {
       return;
@@ -109,6 +98,17 @@ const StudentsProvider = ({ children }) => {
       setLoading(false);
     }
   }, [auth, authReady]);
+
+     useEffect(() => {
+  if (!auth || !authReady) {
+    cache.current.clear();
+    setEstudiantes([]);
+    setSelectedStudent(null);
+  } else if (authReady && (auth === 'admin' || auth === 'user')) {
+    // Cargar estudiantes automáticamente cuando la autenticación está lista
+    obtenerEstudiantes();
+  }
+}, [auth, authReady, obtenerEstudiantes]);
 
   const obtenerEstudiantePorId = useCallback(async (studentId) => {
     if (!authReady) {
