@@ -39,7 +39,6 @@
 .main-content {
   flex-grow: 1;
   padding: 20px;
-  margin-left: 240px;
   overflow-y: auto;
   background-color: var(--background-color);
   transition: margin-left var(--transition);

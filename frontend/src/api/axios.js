@@ -106,6 +106,11 @@ client.interceptors.response.use(
         isRefreshing = false;
 
         // Disparamos evento para que React sepa que debe hacer logout visualmente
+        const refreshMessage =
+          refreshError?.response?.data?.message ||
+          'La sesión expiró. Por favor, inicia sesión nuevamente.';
+
+        sessionStorage.setItem('auth_error_message', refreshMessage);
         window.dispatchEvent(new CustomEvent('SESSION_EXPIRED'));
 
         return Promise.reject(refreshError);

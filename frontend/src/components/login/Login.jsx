@@ -23,6 +23,14 @@ const Login = () => {
         }
     }, [auth, navigate]);
 
+    useEffect(() => {
+        const storedAuthError = sessionStorage.getItem('auth_error_message');
+        if (storedAuthError) {
+            setError(storedAuthError);
+            sessionStorage.removeItem('auth_error_message');
+        }
+    }, []);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');

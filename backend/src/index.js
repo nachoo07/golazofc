@@ -78,12 +78,17 @@ app.use((req, res, next) => {
 });
 
 // Rate limit específico para auth
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
   max: NODE_ENV === 'production' ? 10 : 50,
-  message: async (req) => {
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: (req) => {
     const retryAfter = Math.ceil((req.rateLimit.resetTime - Date.now()) / 1000);
-    return `Demasiados intentos. Por favor, intenta de nuevo en ${retryAfter} segundos.`;
+    return {
+      success: false,
+      message: `Demasiados intentos. Por favor, intenta de nuevo en ${retryAfter} segundos.`
+    };
   }
 });
 
@@ -96,7 +101,8 @@ const apiLimiter = rateLimit({
   },
 });
 
-app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/auth/login', loginLimiter);
+app.use('/api/auth', authRoutes);
 app.use('/api/users', apiLimiter, userRoutes);
 app.use('/api/students', apiLimiter, studentRoutes);
 app.use('/api/shares', apiLimiter, shareRoutes);
