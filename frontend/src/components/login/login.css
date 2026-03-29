@@ -307,57 +307,9 @@
     }
 }
 
-@media (max-width: 768px) {
-    .login-page-form-wrapper {
-        width: 95%;
-        padding: 30px 20px;
-        gap: 25px;
-        background: linear-gradient(180deg, var(--color-primary) 34%, var(--background) 10%);
-    }
-
-    .login-page-logo {
-        width: 150px;
-        height: 120px;
-    }
-
-    .login-page-title {
-        font-size: 28px;
-    }
-
-    .login-page-title-container {
-        margin: 0 10px;
-        padding: 12px 16px;
-    }
-
-    .login-page-form {
-        max-width: 100%;
-        gap: 20px;
-    }
-
-    .login-page-form-label {
-        font-size: 16px;
-    }
-
-    .login-page-form input {
-        font-size: 14px;
-        padding: 12px 16px;
-    }
-
-    .login-page-submit-button {
-        font-size: 14px;
-        padding: 12px 20px;
-    }
-
-    .login-alert {
-        font-size: 13px;
-        padding: 10px 14px;
-    }
-}
-
 @media (max-width: 480px) {
     .login-page-container {
         padding: 20px;
-        
     }
 
     .login-page-form-wrapper {
