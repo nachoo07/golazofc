@@ -16,7 +16,7 @@ const Users = () => {
   const { usuarios, addUsuarioAdmin, updateUsuarioAdmin, deleteUsuarioAdmin, isLoading = false } = useContext(UsersContext);
   const { userData } = useContext(LoginContext);
   const [show, setShow] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(true);
+  const [isMenuOpen, setIsMenuOpen] = useState(window.innerWidth > 576);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterState, setFilterState] = useState('todos');
   const [formData, setFormData] = useState({

@@ -505,38 +505,42 @@ const EmailNotification = () => {
               </div>
             </div>
             <div className="email-bulk-actions">
-              <button
-                type="button"
-                className={`quick-action-btn email select-all-btn ${activeButton === "selectAll" ? "active" : ""}`}
-                onClick={handleSelectAllActive}
-                disabled={loading || dataLoading}
-              >
-                Todos Activos
-              </button>
-              <button
-                type="button"
-                className={`quick-action-btn email select-all-btn ${activeButton === "selectFiltered" ? "active" : ""}`}
-                onClick={handleSelectFiltered}
-                disabled={loading || dataLoading}
-              >
-                {areAllFilteredSelected ? "Quitar filtrados" : "Seleccionar filtrados"}
-              </button>
-              <button
-                type="button"
-                className={`quick-action-btn email select-overdue-btn ${activeButton === "selectOverdue" ? "active" : ""}`}
-                onClick={handleSelectOverdue}
-                disabled={loading || dataLoading}
-              >
-                Cuotas Vencidas
-              </button>
-              <button
-                type="button"
-                className="quick-action-btn cancel-btn"
-                onClick={handleCancel}
-                disabled={loading || dataLoading}
-              >
-                Limpiar
-              </button>
+              <div className="email-bulk-actions-group">
+                <button
+                  type="button"
+                  className={`quick-action-btn email select-all-btn ${activeButton === "selectAll" ? "active" : ""}`}
+                  onClick={handleSelectAllActive}
+                  disabled={loading || dataLoading}
+                >
+                  Todos Activos
+                </button>
+                <button
+                  type="button"
+                  className={`quick-action-btn email select-all-btn ${activeButton === "selectFiltered" ? "active" : ""}`}
+                  onClick={handleSelectFiltered}
+                  disabled={loading || dataLoading}
+                >
+                  {areAllFilteredSelected ? "Quitar filtrados" : "Seleccionar filtrados"}
+                </button>
+              </div>
+              <div className="email-bulk-actions-group">
+                <button
+                  type="button"
+                  className={`quick-action-btn email select-overdue-btn ${activeButton === "selectOverdue" ? "active" : ""}`}
+                  onClick={handleSelectOverdue}
+                  disabled={loading || dataLoading}
+                >
+                  Cuotas Vencidas
+                </button>
+                <button
+                  type="button"
+                  className="quick-action-btn cancel-btn"
+                  onClick={handleCancel}
+                  disabled={loading || dataLoading}
+                >
+                  Limpiar
+                </button>
+              </div>
             </div>
           </section>
           <section className="email-card email-table-card">

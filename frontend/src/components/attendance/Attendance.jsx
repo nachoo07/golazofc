@@ -32,7 +32,7 @@ const Attendance = () => {
   const [reportFormat, setReportFormat] = useState('excel');
   const [reportError, setReportError] = useState(null);
 
-  const [isMenuOpen, setIsMenuOpen] = useState(true);
+  const [isMenuOpen, setIsMenuOpen] = useState(window.innerWidth > 576);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [searchTerm, setSearchTerm] = useState('');
 

@@ -262,9 +262,10 @@
   }
 
   .add-btn-student {
-    font-size: 15px !important;
+    font-size: 12px !important;
     width: 100% !important;
     justify-content: center !important;
+    
   }
 
   .filter-pill {
@@ -310,6 +311,12 @@
 
   .action-btn-student{
     padding: 3px 4px !important;
+  }
+
+  .students-actions{
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
   }
 
   /*FIN BOTONES DE ACCIONES*/

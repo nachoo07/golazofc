@@ -291,7 +291,7 @@
         align-items: center;
         gap: 10px;
         flex-wrap: wrap;
-        margin: 0px !important;
+        margin-top: 10px !important;
         margin-bottom: 10px !important;
     }
 
@@ -301,8 +301,8 @@
     }
 
     .checkbox-group {
-        flex-wrap: wrap;
-        justify-content: flex-start;
+        display: flex;
+        
         gap: 10px;
     }
 
@@ -331,10 +331,6 @@
 
     .motion-filter-input {
         width: 100%;
-    }
-
-    .checkbox-group {
-        margin-top: 0px;
     }
 
     .motion-table th,
