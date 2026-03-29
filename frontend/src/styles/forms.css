@@ -1,0 +1,19 @@
+.form-control-custom {
+  width: 100%;
+  background: var(--form-control-bg);
+  border: 1px solid var(--form-control-border);
+  color: var(--form-control-text);
+  border-radius: 8px;
+  min-height: 40px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-control-custom::placeholder {
+  color: var(--form-control-placeholder);
+}
+
+.form-control-custom:focus {
+  border-color: var(--form-control-focus-border) !important;
+  box-shadow: 0 0 0 3px var(--form-control-focus-ring) !important;
+  outline: none;
+}

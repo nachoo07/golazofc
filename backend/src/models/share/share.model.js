@@ -22,13 +22,17 @@ const shareSchema = new mongoose.Schema({
   },
   paymentmethod: {
     type: String,
-    enum: ['Efectivo', 'Tarjeta', 'Transferencia'],
+    enum: ['Efectivo', 'Transferencia'],
     required: function () { return this.state === 'Pagado'; }
   },
-
   paymentdate: {
     type: Date,
     required: function () { return this.state === 'Pagado'; }
+  },
+  proofUrl: {
+    type: String,
+    trim: true,
+    default: ''
   },
   updatedBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -38,7 +42,7 @@ const shareSchema = new mongoose.Schema({
   timestamps: true
 });
 
-shareSchema.index({ student: 1, date: 1 });
+shareSchema.index({ student: 1, date: 1 }, { unique: true });
 
 const Share = mongoose.model('Share', shareSchema);
 export default Share;

@@ -1,180 +1,132 @@
-import { useEffect, useState, createContext, useContext } from "react";
-import axios from "axios";
-import Swal from "sweetalert2";
+import { useEffect, useState, createContext, useContext, useCallback } from "react";
+import client from "../../api/axios";
 import { LoginContext } from "../login/LoginContext";
-import { useNavigate } from "react-router-dom"; // Importar useNavigate
+import { useNavigate } from "react-router-dom";
+import { getErrorMsg } from "../../utils/helperError/ErrorMsg";
+import { showSuccessToast, showErrorAlert, showConfirmAlert } from "../../utils/alerts/Alerts";
 
 export const UsersContext = createContext();
 
 const UsersProvider = ({ children }) => {
-  const { auth, waitForAuth } = useContext(LoginContext);
+  const { auth, authReady, userData } = useContext(LoginContext);
   const [usuarios, setUsuarios] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate(); // Agregar navigate
 
-  const obtenerUsuarios = async () => {
-    if (auth === "admin") {
-         return;
-    }
-      try {
-        const response = await axios.get("/api/users", {
-          withCredentials: true,
-        });
-        if (JSON.stringify(usuarios) !== JSON.stringify(response.data)) {
-          setUsuarios(response.data);
-        }
-      } catch (error) {
-        console.error("Error al obtener usuarios:", {
-          message: error.message,
-          response: error.response?.data,
-          status: error.response?.status,
-        });
-        if (error.response?.status === 401) {
-        // Token expirado o no autenticado, redirigir al login
+  const obtenerUsuarios = useCallback(async () => {
+    if (auth !== "admin") return;
+    try {
+      setIsLoading(true);
+      const response = await client.get("/users");
+      const data = Array.isArray(response.data) ? response.data : [];
+      setUsuarios(data);
+    } catch (error) {
+      console.error("Error obteniendo usuarios:", error);
+      if (error.response?.status === 401) {
         navigate("/login");
-      } else {
-        Swal.fire("¡Error!", "No se pudieron cargar los usuarios", "error");
+        return;
       }
+      const msg = getErrorMsg(error, "No se pudieron cargar los usuarios");
+      showErrorAlert("Error de Carga", msg);
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [auth, navigate]);
 
   const addUsuarioAdmin = async (usuario) => {
-    if (auth === "admin") {
-      try {
-        const usuarioData = {
-          name: usuario.name,
-          mail: usuario.mail,
-          password: usuario.password,
-          role: usuario.role,
-        };
-        const response = await axios.post(
-          "/api/users/create",
-          usuarioData,
-          { withCredentials: true }
-        );
-        if (response.status === 201 && response.data.user) {
-          setUsuarios((prevUsuarios) => [...prevUsuarios, response.data.user]);
-          Swal.fire("¡Éxito!", "Usuario admin creado correctamente", "success");
-        } else {
-          throw new Error(response.data.message || "No se pudo crear el usuario admin");
-        }
-      } catch (error) {
-        console.error("Error al crear usuario admin:", {
-          message: error.message,
-          response: error.response?.data,
-          status: error.response?.status,
-        });
-        let errorMessage = "No se pudo crear el usuario admin.";
-        if (error.response?.status === 400) {
-          errorMessage = error.response.data.message || "Datos inválidos. Verifica los campos.";
-        } else if (error.response?.status === 409) {
-          errorMessage = "El correo ya está registrado.";
-        } else if (error.response?.status === 401) {
-          errorMessage = "Sesión expirada. Inicia sesión nuevamente.";
-          navigate("/login");
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-        Swal.fire("¡Error!", errorMessage, "error");
+    if (auth !== "admin") return;
+    try {
+      const response = await client.post("/users/create", usuario);
+      if (response.status === 201 && response.data.user) {
+        setUsuarios((prev) => [...prev, response.data.user]);
+        showSuccessToast("Usuario creado correctamente");
       }
+    } catch (error) {
+      const msg = getErrorMsg(error, "No se pudo crear el usuario");
+      const isFormValidationError = error.response?.status === 400 && Array.isArray(error.response?.data?.errors);
+
+      if (!isFormValidationError) {
+        showErrorAlert("Error al crear", msg);
+      }
+      throw error;
     }
   };
 
   const updateUsuarioAdmin = async (id, usuarioActualizado) => {
-    if (auth === "admin") {
-      try {
-        const usuarioData = {
-          name: usuarioActualizado.name,
-          mail: usuarioActualizado.mail,
-          role: usuarioActualizado.role,
-          state: usuarioActualizado.state,
-        };
-        const response = await axios.put(
-          `/api/users/update/${id}`,
-          usuarioData,
-          { withCredentials: true }
-        );
-        if (response.status === 200 && response.data.user) {
-          setUsuarios((prevUsuarios) =>
-            prevUsuarios.map((usuario) =>
-              usuario._id === id ? response.data.user : usuario
-            )
-          );
-          Swal.fire("¡Éxito!", "Usuario actualizado correctamente", "success");
-        } else {
-          throw new Error(response.data.message || "No se pudo actualizar el usuario");
-        }
-      } catch (error) {
-        console.error("Error al actualizar usuario:", {
-          message: error.message,
-          response: error.response?.data,
-          status: error.response?.status,
-        });
-        let errorMessage = "No se pudo actualizar el usuario.";
-        if (error.response?.status === 400) {
-          errorMessage = error.response.data.message || "Datos inválidos. Verifica los campos.";
-        } else if (error.response?.status === 404) {
-          errorMessage = "Usuario no encontrado.";
-        } else if (error.response?.status === 409) {
-          errorMessage = "El correo ya está registrado.";
-        } else if (error.response?.status === 401) {
-          errorMessage = "Sesión expirada. Inicia sesión nuevamente.";
-          navigate("/login");
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-        Swal.fire("¡Error!", errorMessage, "error");
+    if (auth !== "admin") return;
+    if (!id) {
+      showErrorAlert("Error", "ID de usuario no válido");
+      throw new Error("ID de usuario no válido");
+    }
+    try {
+      const response = await client.put(`/users/update/${id}`, usuarioActualizado);
+      if (response.status === 200 && response.data.user) {
+        setUsuarios((prev) => prev.map((u) => (u._id === id ? response.data.user : u)));
+        showSuccessToast("Usuario actualizado correctamente");
       }
+    } catch (error) {
+      const msg = getErrorMsg(error, "No se pudo actualizar el usuario");
+      const isFormValidationError = error.response?.status === 400 && Array.isArray(error.response?.data?.errors);
+      if (error.response?.status !== 401 && !isFormValidationError) { // 401 redirige, validación se muestra inline
+        showErrorAlert("Error al actualizar", msg);
+      }
+      throw error;
     }
   };
 
   const deleteUsuarioAdmin = async (id) => {
-    if (auth === "admin") {
-      try {
-        const confirmacion = await Swal.fire({
-          title: "¿Estás seguro?",
-          text: "Esta acción no se puede deshacer",
-          icon: "warning",
-          showCancelButton: true,
-          confirmButtonColor: "#3085d6",
-          cancelButtonColor: "#d33",
-          confirmButtonText: "Sí, eliminar",
-          cancelButtonText: "Cancelar",
-        });
-
-        if (confirmacion.isConfirmed) {
-          await axios.delete(`/api/users/delete/${id}`, {
-            withCredentials: true,
-          });
-          setUsuarios((prevUsuarios) =>
-            prevUsuarios.filter((usuario) => usuario._id !== id)
-          );
-          Swal.fire("¡Eliminado!", "Usuario eliminado correctamente", "success");
-        }
-      } catch (error) {
-        console.error("Error al eliminar usuario:", {
-          message: error.message,
-          response: error.response?.data,
-          status: error.response?.status,
-        });
-        Swal.fire("¡Error!", "No se pudo eliminar el usuario", "error");
+    if (auth !== "admin") return;
+    if (!id) {
+      showErrorAlert("Error", "ID de usuario no válido");
+      return;
+    }
+    try {
+      const userToDelete = usuarios.find((u) => u._id === id);
+      if (usuarios.length <= 1) {
+        showErrorAlert("Restricción", "Debe quedar al menos un usuario cargado.");
+        return;
       }
+      if (userData?.id && String(userData.id) === String(id)) {
+        showErrorAlert("Restricción", "No puedes eliminar el usuario con sesión activa.");
+        return;
+      }
+      const activeAdmins = usuarios.filter((u) => u.role === "admin" && !!u.state);
+      if (userToDelete?.role === "admin" && userToDelete?.state && activeAdmins.length <= 1) {
+        showErrorAlert("Restricción", "Debe quedar al menos un administrador activo.");
+        return;
+      }
+
+      // Usamos tu alerta de confirmación
+      const isConfirmed = await showConfirmAlert("¿Eliminar usuario?", "Esta acción no se puede deshacer.");
+
+      if (isConfirmed) {
+        await client.delete(`/users/delete/${id}`);
+        setUsuarios((prev) => prev.filter((u) => u._id !== id));
+        showSuccessToast("Usuario eliminado correctamente");
+      }
+    } catch (error) {
+      const msg = getErrorMsg(error, "No se pudo eliminar el usuario");
+      showErrorAlert("Error", msg);
     }
   };
 
-    useEffect(() => {
+  useEffect(() => {
     const fetchData = async () => {
-      await waitForAuth();
+      if (!authReady) return;
       if (auth === "admin") {
         await obtenerUsuarios();
+      } else {
+        setUsuarios([]);
       }
     };
     fetchData();
-  }, [auth, waitForAuth, navigate]);
+  }, [auth, authReady, obtenerUsuarios]);
 
   return (
     <UsersContext.Provider
       value={{
         usuarios,
+        isLoading,
         obtenerUsuarios,
         addUsuarioAdmin,
         updateUsuarioAdmin,

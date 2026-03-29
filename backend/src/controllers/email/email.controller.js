@@ -1,279 +1,239 @@
-import nodemailer from "nodemailer";
+
 import sanitizeHtml from "sanitize-html";
 import pino from "pino";
-import PDFDocument from "pdfkit";
-import path from "path";
-import { fileURLToPath } from "url";
-import { DateTime } from "luxon";
-import dotenv from "dotenv";
-import fs from "fs";
-
-dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { sendBadRequest, sendInternalServerError } from "../_shared/controller.utils.js";
+import { transporter, buildFromAddress, isEmailConfigured } from "../../services/email/transporter.service.js";
+import { generateVoucherPdf } from "../../services/email/voucherPdf.service.js";
+import Student from "../../models/student/student.model.js";
+import {
+  initEmailProgress,
+  updateEmailProgress,
+  completeEmailProgress,
+  failEmailProgress,
+  subscribeEmailProgress,
+} from "../../services/email/emailProgress.service.js";
 
 const logger = pino();
-
-if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-  logger.error("Credenciales de correo no definidas. Asegúrate de que EMAIL_USER y EMAIL_PASS estén en el archivo .env");
-  throw new Error("Credenciales de correo no definidas");
-}
-
-logger.info(`Configurando transporter con EMAIL_USER: ${process.env.EMAIL_USER}`);
-
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  pool: true,
-  maxConnections: 10,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
-
-transporter.verify((error, success) => {
-  if (error) {
-    logger.error({ error: error.message }, "Error al verificar el transporter de nodemailer");
-  } else {
-    logger.info("Transporter verificado exitosamente");
-  }
-});
-
-const logoPath = path.join(__dirname, "../../assets/logo.png");
-let logoBuffer = null;
-if (fs.existsSync(logoPath)) {
-  try {
-    logoBuffer = fs.readFileSync(logoPath);
-    logger.info("Logo cargado en memoria al iniciar el servidor");
-  } catch (error) {
-    logger.error({ error: error.message }, "Error al cargar el logo en memoria");
-  }
-}
-
-const formatCache = new Map();
-
-const formatAmount = (amount) => {
-  if (!amount) return "N/A";
-  const cacheKey = `amount_${amount}`;
-  if (formatCache.has(cacheKey)) return formatCache.get(cacheKey);
-  let numericAmount = amount.toString().replace(/CLP/gi, "").trim();
-  let numAmount = parseFloat(numericAmount.replace(/\./g, "").replace(",", "."));
-  if (isNaN(numAmount)) return "N/A";
-  const formatted = `$${numAmount.toLocaleString("es-CL")}`;
-  formatCache.set(cacheKey, formatted);
-  return formatted;
+const SIMPLE_EMAIL_REGEX = /\S+@\S+\.\S+/;
+const PER_RECIPIENT_BATCH_SIZE = 8;
+const SANITIZE_OPTIONS = {
+  allowedTags: ["b", "i", "em", "strong", "p", "br", "div", "span", "h1", "h2", "h3", "img"],
+  allowedAttributes: { img: ["src", "alt"] },
 };
 
-const capitalizeFirstLetter = (string) => {
-  if (!string) return "N/A";
-  return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
+const buildMailOptions = ({ to, subject, message }) => ({
+  from: buildFromAddress(),
+  to,
+  subject,
+  html: sanitizeHtml(message, SANITIZE_OPTIONS),
+});
+
+const buildAttachment = async (attachment) => {
+  if (!attachment) return undefined;
+
+  if (typeof attachment === "object" && attachment.format === "pdf") {
+    const pdfBuffer = await generateVoucherPdf(attachment);
+    return [
+      {
+        filename: attachment.filename || "comprobante.pdf",
+        content: pdfBuffer,
+        contentType: "application/pdf",
+      },
+    ];
+  }
+
+  return [
+    {
+      filename: "comprobante.png",
+      content: Buffer.from(attachment, "base64"),
+      contentType: "image/png",
+    },
+  ];
 };
 
-const formatDate = (date) => {
-  if (!date) return "N/A";
-  const cacheKey = `date_${date}`;
-  if (formatCache.has(cacheKey)) return formatCache.get(cacheKey);
-  let parsedDate;
-  if (typeof date === "string" && date.includes("T")) {
-    parsedDate = DateTime.fromISO(date, { zone: "utc" });
-  } else if (typeof date === "string" && date.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
-    parsedDate = DateTime.fromFormat(date, "dd/MM/yyyy", { zone: "America/Argentina/Tucuman" });
-  } else if (date instanceof Date) {
-    parsedDate = DateTime.fromJSDate(date, { zone: "America/Argentina/Tucuman" });
-  } else {
-    parsedDate = DateTime.fromJSDate(new Date(date), { zone: "America/Argentina/Tucuman" });
+const getRecipientsFromNormalizedEmail = (normalizedEmail) => {
+  if (!normalizedEmail) return [];
+  if (normalizedEmail.mode === "bulkSame") {
+    return (normalizedEmail.recipients || []).map((email) => String(email || "").trim().toLowerCase()).filter(Boolean);
   }
-  if (!parsedDate.isValid) return "N/A";
-  const formatted = parsedDate.toFormat("dd/MM/yyyy");
-  formatCache.set(cacheKey, formatted);
-  return formatted;
+  if (normalizedEmail.mode === "perRecipient") {
+    return (normalizedEmail.messages || [])
+      .map((entry) => String(entry?.recipient || "").trim().toLowerCase())
+      .filter(Boolean);
+  }
+  return [];
+};
+
+const validateSingleStudentState = async (normalizedEmail) => {
+  if (!normalizedEmail?.enforceSingleState) return;
+
+  const selectedIds = Array.isArray(normalizedEmail?.selectedStudentIds)
+    ? normalizedEmail.selectedStudentIds.filter(Boolean)
+    : [];
+
+  let matchedStudents = [];
+
+  if (selectedIds.length > 0) {
+    matchedStudents = await Student.find({ _id: { $in: selectedIds } })
+      .select("state")
+      .lean();
+  } else {
+    const recipients = getRecipientsFromNormalizedEmail(normalizedEmail);
+    if (recipients.length === 0) return;
+    const uniqueRecipients = [...new Set(recipients)];
+    matchedStudents = await Student.find({ mail: { $in: uniqueRecipients } })
+      .select("state mail")
+      .lean();
+  }
+
+  if (!matchedStudents.length) return;
+
+  const distinctStates = [...new Set(matchedStudents.map((student) => student.state).filter(Boolean))];
+  if (distinctStates.length > 1) {
+    const error = new Error("No se puede enviar en el mismo lote a alumnos Activos e Inactivos.");
+    error.statusCode = 400;
+    throw error;
+  }
 };
 
 export const sendEmail = async (req, res) => {
-  const { recipients, subject, message, attachment, emails } = req.body;
+  const { normalizedEmail } = req.body;
+  const progressId = normalizedEmail?.progressId;
 
-  if (recipients && Array.isArray(recipients) && subject && message) {
-    if (recipients.length === 0) {
-      return res.status(400).json({ message: "El arreglo de destinatarios no puede estar vacío" });
+  if (!normalizedEmail || !normalizedEmail.mode) {
+    return sendBadRequest(res, "Formato de solicitud inválido");
+  }
+
+  if (!isEmailConfigured() || !transporter) {
+    return res.status(503).json({ message: "El servicio de correo no está configurado" });
+  }
+
+  try {
+    await validateSingleStudentState(normalizedEmail);
+  } catch (error) {
+    if (error.statusCode === 400) {
+      return sendBadRequest(res, error.message);
     }
+    return sendInternalServerError(res, "No se pudo validar el estado de los destinatarios");
+  }
 
-    const validEmails = recipients.every((email) => /\S+@\S+\.\S+/.test(email));
-    if (!validEmails) {
-      return res.status(400).json({ message: "Uno o más correos son inválidos" });
-    }
+  if (normalizedEmail.mode === "bulkSame") {
+    const total = normalizedEmail.recipients.length;
+    initEmailProgress({ progressId, total });
 
-    if (recipients.length > 100) {
-      return res.status(400).json({ message: "Máximo 100 destinatarios por solicitud" });
-    }
-
-    const sanitizedMessage = sanitizeHtml(message, {
-      allowedTags: ["b", "i", "em", "strong", "p", "br", "div", "span", "h1", "h2", "h3", "img"],
-      allowedAttributes: { img: ["src", "alt"] },
+    const mailOptions = buildMailOptions({
+      to: "undisclosed-recipients:;",
+      subject: normalizedEmail.subject,
+      message: normalizedEmail.message,
     });
 
-    const mailOptions = {
-      from: `"Golazo" <${process.env.EMAIL_USER}>`,
-      to: recipients.join(", "),
-      subject,
-      html: sanitizedMessage,
-    };
+    mailOptions.bcc = normalizedEmail.recipients;
 
-    if (attachment) {
-      if (typeof attachment === "object" && attachment.format === "pdf") {
-        console.time("pdfGeneration"); // Añadido para medir
-        const doc = new PDFDocument({
-          size: [400, 230],
-          margin: 30,
-          font: 'Helvetica',
-        });
-        let buffers = [];
-        doc.on("data", buffers.push.bind(buffers));
-        doc.on("end", () => { });
-
-        let logoAdded = false;
-        if (logoBuffer) {
-          try {
-            doc.image(logoBuffer, 30, 20, { width: 60 });
-            logger.info("Logo agregado desde caché al PDF");
-            logoAdded = true;
-          } catch (error) {
-            logger.error({ error: error.message }, "Error al agregar el logo desde caché al PDF");
-          }
-        } else if (fs.existsSync(logoPath)) {
-          try {
-            doc.image(logoPath, 30, 20, { width: 60 });
-            logger.info("Logo agregado exitosamente al PDF desde archivo");
-            logoAdded = true;
-          } catch (error) {
-            logger.error({ error: error.message }, "Error al agregar el logo al PDF");
-          }
-        } else {
-          logger.warn(`Archivo de logo no encontrado en: ${logoPath}`);
-        }
-
-        const titleFontSize = 14;
-        doc.fontSize(titleFontSize);
-        const titleWidth = doc.widthOfString("Golazo");
-        const titleX = logoAdded ? 30 + 60 + 10 : (400 - titleWidth) / 2;
-        const titleY = logoAdded ? 35 : 35;
-        doc.fillColor("#000000").font('Helvetica').fontSize(titleFontSize).text("Golazo", titleX, titleY);
-
-        const comprobanteFontSize = 18;
-        doc.fontSize(comprobanteFontSize);
-        const comprobanteWidth = doc.widthOfString("Comprobante");
-        const comprobanteX = 400 - 30 - comprobanteWidth;
-        doc.fillColor("#e31fa8").font('Helvetica').text("Comprobante", comprobanteX, 25);
-        doc.fillColor("#e31fa8").rect(30, 82, 340, 2).fill();
-
-        doc.fillColor("#6C757D").font('Helvetica').fontSize(10).text("Información del Estudiante", 30, 90);
-        doc.fillColor("#000000")
-          .font('Helvetica')
-          .fontSize(8)
-          .text(`Nombre y Apellido: ${attachment.student.name || "N/A"} ${attachment.student.lastName || ""}`, 30, 102);
-        doc.fillColor("#000000").font('Helvetica').fontSize(8).text(`Dni: ${attachment.student.dni || "N/A"}`, 30, 114);
-
-        if (attachment.cuota) {
-          doc.fillColor("#6C757D").font('Helvetica').fontSize(10).text("Detalle de la Cuota", 30, 126);
-          doc.fillColor("#000000").font('Helvetica').fontSize(8).text(`Mes: ${attachment.cuota.date || "N/A"}`, 30, 138);
-          doc.fillColor("#000000").font('Helvetica').fontSize(8).text(`Monto: ${formatAmount(attachment.cuota.amount)}`, 30, 150);
-          doc.fillColor("#000000").font('Helvetica').fontSize(8).text(`Método de Pago: ${attachment.cuota.paymentmethod || "N/A"}`, 30, 162);
-          doc.fillColor("#000000").font('Helvetica').fontSize(8).text(`Fecha de Pago: ${formatDate(attachment.cuota.paymentdate)}`, 30, 174);
-        } else if (attachment.payment) {
-          doc.fillColor("#6C757D").font('Helvetica').fontSize(10).text("Detalle del Pago", 30, 126);
-          doc.fillColor("#000000").font('Helvetica').fontSize(8).text(`Concepto: ${capitalizeFirstLetter(attachment.payment.concept)}`, 30, 138);
-          doc.fillColor("#000000").font('Helvetica').fontSize(8).text(`Monto: ${formatAmount(attachment.payment.amount)}`, 30, 150);
-          doc.fillColor("#000000").font('Helvetica').fontSize(8).text(`Método de Pago: ${attachment.payment.paymentMethod}`, 30, 162);
-          doc.fillColor("#000000").font('Helvetica').fontSize(8).text(`Fecha de Pago: ${formatDate(attachment.payment.paymentDate)}`, 30, 174);
-        }
-        doc.fillColor("#000000").font('Helvetica').fontSize(8).text(`Fecha de Emisión: ${DateTime.fromJSDate(new Date()).setZone("America/Argentina/Tucuman").toFormat("dd/MM/yyyy")}`, 30, 186);
-
-        doc.end();
-        console.timeEnd("pdfGeneration"); // Añadido para medir
-
-        const pdfBuffer = await new Promise((resolve) => {
-          doc.on("end", () => {
-            resolve(Buffer.concat(buffers));
-          });
-        });
-
-        mailOptions.attachments = [
-          {
-            filename: attachment.filename || "comprobante.pdf",
-            content: pdfBuffer,
-            contentType: "application/pdf",
-          },
-        ];
-      } else {
-        mailOptions.attachments = [
-          {
-            filename: "comprobante.png",
-            content: Buffer.from(attachment, "base64"),
-            contentType: "image/png",
-          },
-        ];
-      }
+    if (normalizedEmail.attachment) {
+      mailOptions.attachments = await buildAttachment(normalizedEmail.attachment);
     }
 
     try {
       await transporter.sendMail(mailOptions);
-      logger.info({ recipients: recipients.length, subject }, "Correos enviados");
-      return res.status(200).json({ message: "Correos enviados exitosamente" });
+      logger.info({ recipients: normalizedEmail.recipients.length, subject: normalizedEmail.subject }, "Correos enviados");
+      updateEmailProgress({ progressId, total, sent: total, failed: 0 });
+      completeEmailProgress({ progressId, total, sent: total, failed: 0 });
+      return res.status(200).json({
+        message: `Se enviaron ${total} de ${total} correos`,
+        total,
+        sent: total,
+        failedCount: 0,
+        failed: [],
+      });
     } catch (error) {
-      logger.error({ error: error.message, recipients }, "Error al enviar correos");
-      return res.status(500).json({ message: "Error al enviar correos", error: error.message });
+      logger.error({ error: error.message, recipients: normalizedEmail.recipients }, "Error al enviar correos");
+      failEmailProgress({ progressId, total, sent: 0, failed: total, message: error.message });
+      return sendInternalServerError(res, "Error al enviar correos");
     }
   }
 
-  if (emails && Array.isArray(emails)) {
-    if (emails.length === 0) {
-      return res.status(400).json({ message: "El arreglo de correos no puede estar vacío" });
-    }
-
-    if (emails.length > 100) {
-      return res.status(400).json({ message: "Máximo 100 correos por solicitud" });
-    }
-
+  if (normalizedEmail.mode === "perRecipient") {
     const failedEmails = [];
+    const messages = normalizedEmail.messages || [];
+    const total = messages.length;
+    let sentCount = 0;
+    let failedCount = 0;
 
-    for (const email of emails) {
-      const { recipient, subject, message } = email;
+    initEmailProgress({ progressId, total });
 
-      if (!recipient || !/\S+@\S+\.\S+/.test(recipient) || !subject || !message) {
-        failedEmails.push({ recipient: recipient || "desconocido", error: "Datos inválidos" });
-        continue;
-      }
+    for (let i = 0; i < messages.length; i += PER_RECIPIENT_BATCH_SIZE) {
+      const batch = messages.slice(i, i + PER_RECIPIENT_BATCH_SIZE);
 
-      const sanitizedMessage = sanitizeHtml(message, {
-        allowedTags: ["b", "i", "em", "strong", "p", "br", "div", "span", "h1", "h2", "h3", "img"],
-        allowedAttributes: { img: ["src", "alt"] },
+      const settledBatch = await Promise.allSettled(
+        batch.map(async (email) => {
+          const { recipient, subject, message, attachment } = email;
+
+          if (!recipient || !SIMPLE_EMAIL_REGEX.test(recipient) || !subject || !message) {
+            return { ok: false, recipient: recipient || "desconocido", error: "Datos inválidos" };
+          }
+
+          const mailOptions = buildMailOptions({
+            to: recipient,
+            subject,
+            message,
+          });
+
+          if (attachment) {
+            mailOptions.attachments = await buildAttachment(attachment);
+          }
+
+          await transporter.sendMail(mailOptions);
+          logger.info({ recipient, subject }, "Correo enviado");
+          return { ok: true, recipient };
+        })
+      );
+
+      settledBatch.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          if (result.value.ok) {
+            sentCount += 1;
+          } else {
+            failedCount += 1;
+            failedEmails.push({ recipient: result.value.recipient, error: result.value.error });
+          }
+          updateEmailProgress({ progressId, total, sent: sentCount, failed: failedCount });
+          return;
+        }
+
+        const fallbackRecipient = batch[index]?.recipient || "desconocido";
+        logger.error({ error: result.reason?.message, recipient: fallbackRecipient }, "Error al enviar correo");
+        failedCount += 1;
+        failedEmails.push({ recipient: fallbackRecipient, error: result.reason?.message || "Error desconocido" });
+        updateEmailProgress({ progressId, total, sent: sentCount, failed: failedCount });
       });
 
-      const mailOptions = {
-        from: `"Golazo" <${process.env.EMAIL_USER}>`,
-        to: recipient,
-        subject,
-        html: sanitizedMessage,
-      };
-
-      try {
-        await transporter.sendMail(mailOptions);
-        logger.info({ recipient, subject }, "Correo enviado");
-      } catch (error) {
-        logger.error({ error: error.message, recipient }, "Error al enviar correo");
-        failedEmails.push({ recipient, error: error.message });
+      if (failedEmails.length > 0) {
+        logger.warn({ batchStart: i, failedInBatch: failedEmails.length }, "Fallos detectados durante envío por lotes");
       }
     }
 
     if (failedEmails.length > 0) {
+      completeEmailProgress({ progressId, total, sent: sentCount, failed: failedCount });
       return res.status(207).json({
-        message: `Se enviaron ${emails.length - failedEmails.length} de ${emails.length} correos`,
+        message: `Se enviaron ${sentCount} de ${total} correos`,
+        total,
+        sent: sentCount,
+        failedCount,
         failed: failedEmails,
       });
     }
 
-    return res.status(200).json({ message: `Correos enviados exitosamente (${emails.length})` });
+    completeEmailProgress({ progressId, total, sent: sentCount, failed: 0 });
+    return res.status(200).json({
+      message: `Se enviaron ${sentCount} de ${total} correos`,
+      total,
+      sent: sentCount,
+      failedCount: 0,
+      failed: [],
+    });
   }
 
-  return res.status(400).json({ message: "Formato de solicitud inválido" });
+  return sendBadRequest(res, "Formato de solicitud inválido");
 };
+
+export const streamEmailProgress = (req, res) => subscribeEmailProgress(req, res);

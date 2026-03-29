@@ -4,7 +4,8 @@ const userSchema = new mongoose.Schema({
     name: {
         type: String,
         required: true,
-        trim: true // Elimina espacios en blanco al inicio y final
+        trim: true,
+        minlength: [3, "El nombre debe tener al menos 3 caracteres."]
     },
     mail: {
         type: String,
@@ -14,13 +15,13 @@ const userSchema = new mongoose.Schema({
         trim: true,
         validate: {
             validator: (v) => /\S+@\S+\.\S+/.test(v),
-            message: "Invalid email format.",
+            message: "Formato de correo inválido.",
           },
     },
     password: {
         type: String,
         required: true,
-        minlength: [6, "Password must be at least 6 characters long."],
+        minlength: [8, "La contraseña debe tener al menos 8 caracteres."],
     },
     role: {
         type: String,

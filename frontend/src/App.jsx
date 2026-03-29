@@ -2,20 +2,18 @@
 import Routing from "./routes/Routing";
 import UsersProvider from "./context/user/UserContext";
 import { LoginProvider } from "./context/login/LoginContext";
-import { useLocation } from "react-router-dom";  // Importa useLocation
 import StudentsProvider from "./context/student/StudentContext";
 import SharesProvider from "./context/share/ShareContext";
 import { AttendanceProvider } from "./context/attendance/AttendanceContext";
 import { MotionProvider } from "./context/motion/MotionContext";
 import EmailProvider from "./context/email/EmailContext";
 import PaymentProvider from "./context/payment/PaymentContext";
+import { Toaster } from "sonner";
 
 function App() {
-    const location = useLocation();
-
   return (
     <>
-        <LoginProvider>
+      <LoginProvider>
         <UsersProvider>
           <StudentsProvider>
             <AttendanceProvider>
@@ -23,8 +21,8 @@ function App() {
                 <EmailProvider>
                   <MotionProvider>
                     <PaymentProvider>
-
-                    <Routing />
+                      <Routing />
+                      <Toaster richColors position="top-right" />
                     </PaymentProvider>
                   </MotionProvider>
                 </EmailProvider>

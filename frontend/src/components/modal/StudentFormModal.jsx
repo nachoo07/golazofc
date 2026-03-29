@@ -1,36 +1,11 @@
-import React, { useState, useContext, useEffect } from 'react';
-import { Modal, Button, Form, Alert, Spinner } from 'react-bootstrap';
+import React, { useState, useContext, useEffect, useMemo } from 'react';
+import { Modal, Button, Form, Spinner } from 'react-bootstrap';
 import { StudentsContext } from '../../context/student/StudentContext';
 import './studentModal.css';
 
-const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formData }) => {
+const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formData, formErrors = {} }) => {
   const { loading } = useContext(StudentsContext);
-  const [showAlert, setShowAlert] = useState(false);
-  const [alertMessage, setAlertMessage] = useState('');
-  const [localFormData, setLocalFormData] = useState({ ...formData });
-
-  useEffect(() => {
-    const normalizedDate = formData.dateInputValue instanceof Date
-      ? formData.dateInputValue.toISOString().split('T')[0]
-      : formData.dateInputValue || '';
-    setLocalFormData(prev => ({
-      ...prev,
-      dateInputValue: normalizedDate,
-      name: formData.name || '',
-      lastName: formData.lastName || '',
-      dni: formData.dni || '',
-      address: formData.address || '',
-      mail: formData.mail || '',
-      category: formData.category || '',
-      guardianName: formData.guardianName || '',
-      guardianPhone: formData.guardianPhone || '',
-      state: formData.state || 'Activo',
-      sure: formData.sure || '',
-      league: formData.league || '',
-      hasSiblingDiscount: formData.hasSiblingDiscount || false,
-      profileImage: formData.profileImage || null,
-    }));
-  }, [formData]);
+  const [previewUrl, setPreviewUrl] = useState(null);
 
   const capitalizeWords = (str) => {
     if (!str || typeof str !== 'string') return str;
@@ -43,39 +18,54 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    const newValue = name === 'name' || name === 'lastName' || name === 'guardianName'
-      ? capitalizeWords(value)
-      : value;
-    setLocalFormData(prev => ({ ...prev, [name]: newValue }));
-    handleChange({ target: { name, value: newValue } });
+    handleChange({
+      target: {
+        name,
+        value:
+          name === 'name' || name === 'lastName' || name === 'guardianName'
+            ? capitalizeWords(value)
+            : value,
+      },
+    });
   };
 
   const handleNumberInput = (e) => {
     const value = e.target.value.replace(/[^0-9]/g, '');
-    setLocalFormData(prev => ({ ...prev, [e.target.name]: value }));
     handleChange({ target: { name: e.target.name, value } });
   };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    handleChange({ target: { name: 'profileImage', value: file } });
+    handleChange({
+      target: {
+        name: 'profileImage',
+        files: file ? [file] : [],
+        type: 'file',
+      },
+    });
   };
 
   const onSubmit = (e) => {
     e.preventDefault();
-    // Validación para asegurar que sure y league tengan un valor válido
-
-    // Validación de DNI (7-9 dígitos)
-    if (localFormData.dni && !/^\d{7,9}$/.test(localFormData.dni)) {
-      setAlertMessage('El DNI debe contener entre 7 y 9 dígitos.');
-      setShowAlert(true);
-      return;
-    }
     handleSubmit(e);
   };
 
-  const maxDate = new Date(new Date().setUTCHours(0, 0, 0, 0)).getTime() + 86399999;
-  const formattedMaxDate = new Date(maxDate).toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0];
+
+  const previewSource = useMemo(() => {
+    if (!formData.profileImage) return '';
+    if (formData.profileImage instanceof File) return URL.createObjectURL(formData.profileImage);
+    return formData.profileImage;
+  }, [formData.profileImage]);
+
+  useEffect(() => {
+    setPreviewUrl(previewSource);
+    return () => {
+      if (previewSource && previewSource.startsWith('blob:')) {
+        URL.revokeObjectURL(previewSource);
+      }
+    };
+  }, [previewSource]);
 
   return (
     <Modal
@@ -92,30 +82,25 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
         </Modal.Title>
       </Modal.Header>
       <Modal.Body className="studentFormModal-body">
-        {showAlert && (
-          <Alert
-            variant="warning"
-            onClose={() => setShowAlert(false)}
-            dismissible
-            className="custom-alert"
-          >
-            <Alert.Heading>¡Atención!</Alert.Heading>
-            <p>{alertMessage}</p>
-          </Alert>
-        )}
         <Form onSubmit={onSubmit} className="studentFormModal-form-grid" encType="multipart/form-data">
+          {formErrors.general && (
+            <div className="studentFormModal-full-width-img">
+              <div className="invalid-feedback" style={{ display: 'block' }}>{formErrors.general}</div>
+            </div>
+          )}
           <Form.Group controlId="formNombre" className="studentFormModal-form-group">
             <Form.Label>Nombre</Form.Label>
             <Form.Control
               type="text"
               placeholder="Ej: Juan"
               name="name"
-              value={localFormData.name || ''}
+              value={formData.name || ''}
               onChange={handleInputChange}
               required
               maxLength={50}
-              className="form-control-custom"
+              className={`form-control-custom ${formErrors.name ? 'is-invalid' : ''}`}
             />
+            {formErrors.name && <div className="invalid-feedback">{formErrors.name}</div>}
           </Form.Group>
           <Form.Group controlId="formLastName" className="studentFormModal-form-group">
             <Form.Label>Apellido</Form.Label>
@@ -123,12 +108,13 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
               type="text"
               placeholder="Ej: Pérez"
               name="lastName"
-              value={localFormData.lastName || ''}
+              value={formData.lastName || ''}
               onChange={handleInputChange}
               required
               maxLength={50}
-              className="form-control-custom"
+              className={`form-control-custom ${formErrors.lastName ? 'is-invalid' : ''}`}
             />
+            {formErrors.lastName && <div className="invalid-feedback">{formErrors.lastName}</div>}
           </Form.Group>
           <Form.Group controlId="formDNI" className="studentFormModal-form-group">
             <Form.Label>DNI</Form.Label>
@@ -136,23 +122,27 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
               type="text"
               placeholder="DNI"
               name="dni"
-              value={localFormData.dni || ''}
+              value={formData.dni || ''}
               onChange={handleNumberInput}
               required
-              className="form-control-custom"
+              pattern="\d{7,9}"
+              title="El DNI debe contener entre 7 y 9 dígitos."
+              className={`form-control-custom ${formErrors.dni ? 'is-invalid' : ''}`}
             />
+            {formErrors.dni && <div className="invalid-feedback">{formErrors.dni}</div>}
           </Form.Group>
           <Form.Group controlId="formBirthDate" className="studentFormModal-form-group">
             <Form.Label>Fecha de Nacimiento</Form.Label>
             <Form.Control
               type="date"
               name="dateInputValue"
-              value={localFormData.dateInputValue || ''}
-              onChange={handleInputChange}
-              max={formattedMaxDate}
+              value={formData.dateInputValue || ''}
+              onChange={handleChange}
+              max={today}
               required
-              className="form-control-custom"
+              className={`form-control-custom ${formErrors.dateInputValue ? 'is-invalid' : ''}`}
             />
+            {formErrors.dateInputValue && <div className="invalid-feedback">{formErrors.dateInputValue}</div>}
           </Form.Group>
           <Form.Group controlId="formDireccion" className="studentFormModal-form-group">
             <Form.Label>Dirección</Form.Label>
@@ -160,12 +150,14 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
               type="text"
               placeholder="Dirección"
               name="address"
-              value={localFormData.address || ''}
-              onChange={handleInputChange}
+              value={formData.address || ''}
+              onChange={handleChange}
               required
               maxLength={100}
-              className="form-control-custom"
+              minLength={5}
+              className={`form-control-custom ${formErrors.address ? 'is-invalid' : ''}`}
             />
+            {formErrors.address && <div className="invalid-feedback">{formErrors.address}</div>}
           </Form.Group>
           <Form.Group controlId="formMail" className="studentFormModal-form-group">
             <Form.Label>Email</Form.Label>
@@ -173,12 +165,14 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
               type="email"
               placeholder="Email"
               name="mail"
-              value={localFormData.mail || ''}
-              onChange={handleInputChange}
+              value={formData.mail || ''}
+              required
+              onChange={handleChange}
               pattern="\S+@\S+\.\S+"
               title="Formato de email inválido."
-              className="form-control-custom"
+              className={`form-control-custom ${formErrors.mail ? 'is-invalid' : ''}`}
             />
+            {formErrors.mail && <div className="invalid-feedback">{formErrors.mail}</div>}
           </Form.Group>
           <Form.Group controlId="formCategoria" className="studentFormModal-form-group">
             <Form.Label>Categoría</Form.Label>
@@ -186,12 +180,13 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
               type="text"
               placeholder="Categoría"
               name="category"
-              value={localFormData.category || ''}
+              value={formData.category || ''}
               onChange={handleInputChange}
               required
               maxLength={50}
-              className="form-control-custom"
+              className={`form-control-custom ${formErrors.category ? 'is-invalid' : ''}`}
             />
+            {formErrors.category && <div className="invalid-feedback">{formErrors.category}</div>}
           </Form.Group>
           <Form.Group controlId="formGuardianName" className="studentFormModal-form-group">
             <Form.Label>Nombre del Tutor</Form.Label>
@@ -199,11 +194,12 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
               type="text"
               placeholder="Nombre del Tutor"
               name="guardianName"
-              value={localFormData.guardianName || ''}
+              value={formData.guardianName || ''}
               onChange={handleInputChange}
               maxLength={50}
-              className="form-control-custom"
+              className={`form-control-custom ${formErrors.guardianName ? 'is-invalid' : ''}`}
             />
+            {formErrors.guardianName && <div className="invalid-feedback">{formErrors.guardianName}</div>}
           </Form.Group>
           <Form.Group controlId="formGuardianPhone" className="studentFormModal-form-group">
             <Form.Label>Teléfono del Tutor</Form.Label>
@@ -211,61 +207,70 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
               type="text"
               placeholder="Teléfono del Tutor"
               name="guardianPhone"
-              value={localFormData.guardianPhone || ''}
+              value={formData.guardianPhone || ''}
               onChange={handleNumberInput}
               pattern="\d{10,15}"
               title="El número debe tener entre 10 y 15 dígitos."
-              className="form-control-custom"
+              className={`form-control-custom ${formErrors.guardianPhone ? 'is-invalid' : ''}`}
             />
+            {formErrors.guardianPhone && <div className="invalid-feedback">{formErrors.guardianPhone}</div>}
           </Form.Group>
           <Form.Group controlId="formState" className="studentFormModal-form-group">
             <Form.Label>Estado</Form.Label>
             <Form.Control
               as="select"
               name="state"
-              value={localFormData.state || 'Activo'}
-              onChange={handleInputChange}
+              value={formData.state || 'Activo'}
+              onChange={handleChange}
               className="form-control-custom"
             >
               <option value="Activo">Activo</option>
               <option value="Inactivo">Inactivo</option>
             </Form.Control>
           </Form.Group>
-      <Form.Group controlId="formSure" className="studentFormModal-form-group">
-  <Form.Label>Seguro</Form.Label>
-  <Form.Select
-    name="sure"
-    value={localFormData.sure || 'No'} // Valor por defecto 'No'
-    onChange={handleInputChange}
-    className="form-control-custom"
-  >
-    <option value="Si">Sí</option>
-    <option value="No">No</option>
-  </Form.Select>
-</Form.Group>
-<Form.Group controlId="formLeague" className="studentFormModal-form-group">
-  <Form.Label>Liga</Form.Label>
-  <Form.Select
-    name="league"
-    value={localFormData.league || 'No'} // Valor por defecto 'No'
-    onChange={handleInputChange}
-    className="form-control-custom"
-  >
-    <option value="Si">Sí</option>
-    <option value="No">No</option>
-  </Form.Select>
-</Form.Group>
+          <Form.Group controlId="formSure" className="studentFormModal-form-group">
+            <Form.Label>Seguro</Form.Label>
+            <Form.Select
+              name="sure"
+              value={formData.sure ?? ''}
+              onChange={handleChange}
+              className={`form-control-custom ${formErrors.sure ? 'is-invalid' : ''}`}
+            >
+              <option value="">Seleccionar</option>
+              <option value="Si">Sí</option>
+              <option value="No">No</option>
+            </Form.Select>
+            {formErrors.sure && <div className="invalid-feedback">{formErrors.sure}</div>}
+          </Form.Group>
+          <Form.Group controlId="formLeague" className="studentFormModal-form-group">
+            <Form.Label>Liga</Form.Label>
+            <Form.Select
+              name="league"
+              value={formData.league ?? ''}
+              onChange={handleChange}
+              className={`form-control-custom ${formErrors.league ? 'is-invalid' : ''}`}
+            >
+              <option value="">Seleccionar</option>
+              <option value="Si">Sí</option>
+              <option value="No">No</option>
+            </Form.Select>
+            {formErrors.league && <div className="invalid-feedback">{formErrors.league}</div>}
+          </Form.Group>
           <Form.Group controlId="formHasSiblingDiscount" className="studentFormModal-checkbox-group">
             <Form.Check
               type="checkbox"
               name="hasSiblingDiscount"
-              checked={localFormData.hasSiblingDiscount || false}
-              onChange={(e) => {
-                const value = e.target.checked;
-                setLocalFormData(prev => ({ ...prev, hasSiblingDiscount: value }));
-                handleChange({ target: { name: 'hasSiblingDiscount', value } });
-              }}
-              label="Aplicar 10% de descuento por hermanos"
+              checked={formData.hasSiblingDiscount || false}
+              onChange={(e) =>
+                handleChange({
+                  target: {
+                    name: e.target.name,
+                    checked: e.target.checked,
+                    type: 'checkbox',
+                  },
+                })
+              }
+              label="10% de descuento por hermanos"
               className="studentFormModal-form-check-custom"
             />
           </Form.Group>
@@ -275,15 +280,16 @@ const StudentFormModal = ({ show, handleClose, handleSubmit, handleChange, formD
               <Form.Control
                 type="file"
                 name="profileImage"
+                accept="image/jpeg,image/png,image/heic,image/heif,image/webp,image/gif"
                 onChange={handleFileChange}
                 disabled={loading}
                 className="form-control-custom"
               />
             </div>
-            {localFormData.profileImage && (
+            {previewUrl && (
               <div className="studentFormModal-image-preview-container">
                 <img
-                  src={localFormData.profileImage instanceof File ? URL.createObjectURL(localFormData.profileImage) : localFormData.profileImage}
+                  src={previewUrl}
                   alt="Vista previa"
                   className="studentFormModal-preview-img"
                   onError={(e) => (e.target.src = 'https://i.pinimg.com/736x/24/f2/25/24f22516ec47facdc2dc114f8c3de7db.jpg')}

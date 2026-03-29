@@ -31,8 +31,6 @@ const Routing = () => {
         path="/attendance"
         element={<ProtectedRoute element={<PageAttendance />} />}
       />
-
-
       {/* Ruta para usuarios comunes */}
       <Route
         path="/homeuser"
@@ -63,13 +61,9 @@ const Routing = () => {
         path="/detailstudent/:id"
         element={<ProtectedRoute element={<PageDetail />} role="admin" />}
       />
-       <Route
+      <Route
         path="/listeconomic"
         element={<ProtectedRoute element={<PageListEconomic />} role="admin" />}
-      />
-      <Route
-        path="/share"
-        element={<ProtectedRoute element={<PageShare />} role="admin" />}
       />
       <Route
         path="/share/:studentId"
@@ -79,9 +73,9 @@ const Routing = () => {
         path="/settings"
         element={<ProtectedRoute element={<Settings />} role="admin" />}
       />
-        <Route
+      <Route
         path="/liststudent"
-        element={<ProtectedRoute element={<PageListaStudent/>} role="admin" />}
+        element={<ProtectedRoute element={<PageListaStudent />} role="admin" />}
       />
       <Route
         path="/paymentstudent/:id"

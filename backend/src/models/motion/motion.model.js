@@ -19,7 +19,7 @@ const motionSchema = new mongoose.Schema({
   paymentMethod: {
     type: String,
     required: true,
-    enum: ['efectivo', 'transferencia'],
+    enum: ['Efectivo', 'Transferencia'],
   },
   incomeType: {
     type: String,

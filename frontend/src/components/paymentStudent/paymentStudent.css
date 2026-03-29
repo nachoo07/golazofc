@@ -3,33 +3,6 @@
   align-items: center;
 }
 
-.menu-toggle {
-  background: none;
-  border: none;
-  font-size: 1.3rem;
-  color: white;
-  cursor: pointer;
-  padding: 10px;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: var(--transition);
-}
-
-.menu-toggle:hover {
-  background-color: var(--background-alt);
-}
-
-.content-columns {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 25px;
-  align-items: start;
-}
-
 .sidebar-column-payment {
   display: flex;
   flex-direction: column;
@@ -39,7 +12,7 @@
 .title-payment-student {
   font-size: 35px !important;
   font-weight: 800;
-  color: #e31fa8;
+  color: var(--color-primary);
   position: relative;
   display: inline-block;
 }
@@ -49,7 +22,7 @@
   display: block;
   width: 100%;
   height: 5px;
-  background: linear-gradient(90deg, #e31fa8, #a21a87);
+  background: linear-gradient(90deg, var(--color-primary), var(--color-primary-dark));
   border-radius: 3px;
   position: absolute;
   left: 0;
@@ -85,7 +58,7 @@
 }
 
 .payment-table th {
-  background: #e31fa8;
+  background: var(--color-primary);
   color: white;
   font-weight: 600;
   
@@ -139,28 +112,61 @@
   z-index: 1000;
 }
 
+.payment-send-lock-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(16, 24, 40, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.payment-send-lock-content {
+  width: min(420px, 100%);
+  border-radius: 14px;
+  border: 1px solid rgba(251, 207, 232, 0.75);
+  background: #fff;
+  padding: 22px 20px;
+  text-align: center;
+  box-shadow: 0 20px 40px rgba(16, 24, 40, 0.2);
+}
+
+.payment-send-lock-content h3 {
+  margin: 10px 0 6px;
+  color: #111827;
+  font-size: 1.2rem;
+}
+
+.payment-send-lock-content p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.92rem;
+}
+
 .content-modal {
-  border-radius: var(--radius-md);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border-radius: var(--modal-radius);
+  box-shadow: var(--modal-shadow);
   width: 90%;
   max-width: 600px;
   animation: dropdown-fade 0.2s ease;
 }
 
 .modal-header-payment {
-  background: linear-gradient(90deg, #e31fa8 60%, #a21a87 100%);
+  background: var(--modal-header-gradient);
   color: white;
   padding: 15px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-top-left-radius: 18px;
-  border-top-right-radius: 18px;
+  border-top-left-radius: var(--modal-radius);
+  border-top-right-radius: var(--modal-radius);
   border-bottom: none;
 }
 
 .modal-header-concept {
-  background-color: #e31fa8;
+  background: var(--modal-header-gradient);
   color: white;
   padding: 15px 20px;
   display: flex;
@@ -184,7 +190,7 @@
 
 .modal-body {
   padding: 20px;
-  background-color: white;
+  background-color: var(--modal-bg);
 }
 
 .content-modal:not(.concept-modal) .modal-body {
@@ -209,17 +215,29 @@
 .form-row input,
 .form-row select {
   padding: 10px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--form-control-border);
   border-radius: var(--radius-sm);
   font-size: 14px;
-  background-color: var(--card-bg);
-  color: var(--text-color);
+  background-color: var(--form-control-bg);
+  color: var(--form-control-text);
 }
 
 .form-row input:focus,
 .form-row select:focus {
   outline: none;
-  border-color: var(--primary-color);
+  border-color: var(--form-control-focus-border);
+  box-shadow: 0 0 0 2px var(--form-control-focus-ring);
+}
+
+.form-row input.input-invalid,
+.form-row select.input-invalid {
+  border-color: #e11d48;
+}
+
+.field-error {
+  margin-top: 4px;
+  color: #b91c1c;
+  font-size: 0.82rem;
 }
 
 .modal-actions {
@@ -239,7 +257,7 @@
   font-weight: 700;
   border-radius: 8px;
   border: none;
-  box-shadow: 0 2px 8px rgba(234,38,143,0.08);
+  box-shadow: 0 2px 8px rgba(234, 38, 143, 0.08);
   transition: background 0.2s, color 0.2s, box-shadow 0.2s;
   margin: 0 auto;
   display: block;
@@ -248,33 +266,33 @@
 }
 
 .btn-subit-concept {
-   background: linear-gradient(90deg, #e31fa8 60%, #a21a87 100%);
-  color: #fff;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
   border: none;
 }
 
 .btn-submit {
-   background: linear-gradient(90deg, #e31fa8 60%, #a21a87 100%);
-  color: #fff;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
   border: none;
 }
 
 .btn-submit:hover {
-    background: linear-gradient(90deg, #a21a87 60%, #e31fa8 100%);
-  color: #fff;
-  box-shadow: 0 4px 16px rgba(234,38,143,0.13);
+  background: var(--btn-primary-bg-hover);
+  color: var(--btn-primary-text);
+  box-shadow: 0 4px 16px rgba(234, 38, 143, 0.13);
 }
 
 .btn-cancel {
- background: #f1f1f1;
-  color: #a21a87;
-  border: 1.5px solid #e31fa8;
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
+  border: var(--btn-secondary-border);
 }
 
 .btn-cancel:hover {
-   background: #f1f1f1;
-  color: #a21a87;
-  border: 1.5px solid #e31fa8;
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
+  border: var(--btn-secondary-border);
 }
 
 .concept-modal {
@@ -315,19 +333,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
+
   height: 20px;
-  background-color: #e31fa8;
+  background-color: var(--color-primary);
   color: white;
   border: none;
   border-radius: 15px;
   /* Oval shape */
   cursor: pointer;
   transition: var(--transition);
-  margin-left: 15px;
+  margin-left: 10px;
 }
 
 .concept-delete-btn:hover {
-  background-color: var(--primary-dark);
+  background-color: var(--color-primary-dark);
 }
 
 .concept-delete-btn svg {
@@ -342,7 +361,7 @@
 .modal-footer {
   text-align: right;
   padding: 20px;
-   background-color: white;
+  background-color: white;
   border-bottom-left-radius: var(--radius-md);
   border-bottom-right-radius: var(--radius-md);
   border-top: 1px solid var(--border-color);
@@ -392,22 +411,11 @@
 }
 
 @media (max-width: 576px) {
-  .desktop-nav-header {
-    padding: 0 15px;
-  }
-
-  .main-content {
-    padding: 15px;
-  }
 
   .payment-table th,
   .payment-table td {
     font-size: 13px;
     padding: 3px;
-  }
-
-  .action-btn-student {
-    font-size: 15px !important;
   }
 
   .btn-action-container {
@@ -416,7 +424,6 @@
 
   .search-section {
     display: none;
-    /* Ocultar buscador en pantallas móviles */
   }
 
   .title-payment-student {

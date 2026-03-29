@@ -55,7 +55,7 @@ const MotionFormModal = ({
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (
       !formData.concept ||
       !formData.amount ||
@@ -67,9 +67,15 @@ const MotionFormModal = ({
       return;
     }
 
+    const parsedAmount = Number(formData.amount);
+    if (Number.isNaN(parsedAmount) || parsedAmount <= 0) {
+      setAlertMessage("El monto debe ser mayor a 0.");
+      return;
+    }
+
     const motionData = {
       concept: formData.concept,
-      amount: parseFloat(formData.amount),
+      amount: parsedAmount,
       paymentMethod: formData.paymentMethod,
       date: dayjs.utc(formData.selectedDate).toDate(),
       incomeType: formData.incomeType,
@@ -79,10 +85,15 @@ const MotionFormModal = ({
       motionData._id = selectedMotion._id;
     }
 
-    onSave(motionData);
-    resetForm();
-    onHide();
+    try {
+      await onSave(motionData);
+      resetForm();
+      onHide();
+    } catch (error) {
+      setAlertMessage(error?.message || "No se pudo guardar el movimiento.");
+    }
   };
+
 
   const handleCancel = () => {
     resetForm();
@@ -129,7 +140,8 @@ const MotionFormModal = ({
             <Form.Control
               type="number"
               name="amount"
-              min="0"
+              min="0.01"
+              step="0.01"
               value={formData.amount}
               onChange={handleInputChange}
               required

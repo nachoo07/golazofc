@@ -1,78 +1,82 @@
-import { useState, useEffect, useContext } from "react";
+import { useState, useEffect, useContext, useMemo, useRef } from "react";
 import { StudentsContext } from "../../context/student/StudentContext";
 import { SharesContext } from "../../context/share/ShareContext";
 import { EmailContext } from "../../context/email/EmailContext";
 import { LoginContext } from "../../context/login/LoginContext";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import {
-  FaBars, FaUsers, FaMoneyBill, FaList, FaExchangeAlt, FaCalendarCheck, FaUserCog,
-  FaCog, FaEnvelope, FaHome, FaClipboardList, FaSearch, FaArrowLeft, FaTimes, FaCheck,
-  FaTrash, FaUserCircle, FaChevronDown, FaTimes as FaTimesClear,
-} from "react-icons/fa";
+import { FaTimes, FaTimes as FaTimesClear, FaSearch, FaSpinner } from "react-icons/fa";
 import Swal from "sweetalert2";
 import "./emailNotification.css";
 import AppNavbar from "../navbar/AppNavbar";
 import logo from '../../assets/logo.png';
+import DesktopNavbar from "../navbar/DesktopNavbar";
+import Sidebar from "../sidebar/Sidebar";
+import Pagination from "../pagination/Pagination";
+
+const ITEMS_PER_PAGE = 8;
+const MOBILE_SELECTED_LIMIT = 10;
+const DEFAULT_SELECTED_LIMIT = 30;
 
 const EmailNotification = () => {
   const { estudiantes, obtenerEstudiantes } = useContext(StudentsContext);
   const { cuotas, obtenerCuotas } = useContext(SharesContext);
-  const { sendMultipleEmails } = useContext(EmailContext);
-  const { waitForAuth, userData, auth } = useContext(LoginContext);
-  const [selectedStudents, setSelectedStudents] = useState([]);
+  const { sendMultipleEmails, createEmailProgressStream } = useContext(EmailContext);
+  const { userData, auth, authReady } = useContext(LoginContext);
+  const navigate = useNavigate();
+
   const [subject, setSubject] = useState("");
   const [displayMessage, setDisplayMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredStudents, setFilteredStudents] = useState([]);
   const [isOverdueMode, setIsOverdueMode] = useState(false);
-  const [cuotaBase, setCuotaBase] = useState(30000);
-  const navigate = useNavigate();
-  const [isMenuOpen, setIsMenuOpen] = useState(true);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(window.innerWidth > 576);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-  const [globalSearchTerm, setGlobalSearchTerm] = useState("");
   const [activeButton, setActiveButton] = useState(null);
+  const [filterState, setFilterState] = useState("todos");
+  const [selectedStudentIds, setSelectedStudentIds] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showAllSelectedMobile, setShowAllSelectedMobile] = useState(false);
+  const [progress, setProgress] = useState({
+    status: "idle",
+    total: 0,
+    sent: 0,
+    failed: 0,
+    pending: 0,
+  });
+
+  const progressStreamRef = useRef(null);
 
   const monthNames = [
-    "Enero",
-    "Febrero",
-    "Marzo",
-    "Abril",
-    "Mayo",
-    "Junio",
-    "Julio",
-    "Agosto",
-    "Septiembre",
-    "Octubre",
-    "Noviembre",
-    "Diciembre",
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
   ];
 
-  const menuItems = [
-    { name: 'Inicio', route: '/', icon: <FaHome />, category: 'principal' },
-    { name: 'Alumnos', route: '/student', icon: <FaUsers />, category: 'principal' },
-    { name: 'Cuotas', route: '/share', icon: <FaMoneyBill />, category: 'finanzas' },
-    { name: 'Reporte', route: '/listeconomic', icon: <FaList />, category: 'finanzas' },
-    { name: 'Movimientos', route: '/motion', icon: <FaExchangeAlt />, category: 'finanzas' },
-    { name: 'Asistencia', route: '/attendance', icon: <FaCalendarCheck />, category: 'principal' },
-    { name: 'Usuarios', route: '/user', icon: <FaUserCog />, category: 'configuracion' },
-    { name: 'Ajustes', route: '/settings', icon: <FaCog />, category: 'configuracion' },
-    { name: 'Envíos de Mail', route: '/email-notifications', icon: <FaEnvelope />, category: 'comunicacion' },
-    { name: 'Listado de Alumnos', route: '/liststudent', icon: <FaClipboardList />, category: 'informes' },
-  ];
+  const closeProgressStream = () => {
+    if (progressStreamRef.current) {
+      progressStreamRef.current.close();
+      progressStreamRef.current = null;
+    }
+  };
+
+  useEffect(() => () => closeProgressStream(), []);
+
+  useEffect(() => {
+    if (!loading) return undefined;
+
+    const handleBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [loading]);
 
   useEffect(() => {
     const handleResize = () => {
       const newWidth = window.innerWidth;
       setWindowWidth(newWidth);
-      if (newWidth < 576) {
-        setIsMenuOpen(false);
-      } else {
-        setIsMenuOpen(true);
-      }
     };
     handleResize();
     window.addEventListener("resize", handleResize);
@@ -81,33 +85,19 @@ const EmailNotification = () => {
 
   useEffect(() => {
     const loadData = async () => {
+      if (!authReady) return;
       setDataLoading(true);
       try {
-        if (!auth) {
-          await waitForAuth();
-        }
         if (!userData || !auth) {
-          console.warn("Autenticación no disponible, redirigiendo a login...");
           navigate("/login");
           return;
         }
 
-        const studentPromise = obtenerEstudiantes().catch((error) => {
-          console.error("Error cargando estudiantes:", error);
-          return [];
-        });
-        const cuotasPromise = obtenerCuotas().catch((error) => {
-          console.error("Error cargando cuotas:", error);
-          return [];
-        });
-        const cuotaBasePromise = fetchCuotaBase().catch((error) => {
-          console.error("Error cargando cuota base:", error);
-          return 30000;
-        });
-
-        await Promise.all([studentPromise, cuotasPromise, cuotaBasePromise]);
-      } catch (error) {
-        console.error("Error general al cargar datos:", error);
+        await Promise.all([
+          obtenerEstudiantes().catch(() => []),
+          obtenerCuotas().catch(() => []),
+        ]);
+      } catch {
         Swal.fire("Error", "No se pudieron cargar los datos iniciales.", "error");
       } finally {
         setDataLoading(false);
@@ -115,201 +105,232 @@ const EmailNotification = () => {
     };
 
     loadData();
-  }, [obtenerEstudiantes, obtenerCuotas, waitForAuth, auth, userData, navigate]);
+  }, [auth, authReady, userData, obtenerEstudiantes, obtenerCuotas, navigate]);
 
-  const fetchCuotaBase = async () => {
-    try {
-      const response = await axios.get("/api/config/cuotaBase", { withCredentials: true });
-      setCuotaBase(response.data.value || 30000);
-      return response.data.value || 30000;
-    } catch (error) {
-      console.error("Error al obtener cuota base:", error);
-      setCuotaBase(30000);
-      return 30000;
+  const normalize = (value = "") => value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  const selectedStudents = useMemo(() => {
+    const selectedSet = new Set(selectedStudentIds);
+    return (estudiantes || []).filter((student) => selectedSet.has(student._id));
+  }, [selectedStudentIds, estudiantes]);
+
+  const isMobileView = windowWidth <= 576;
+
+  const visibleSelectedStudents = useMemo(() => {
+    if (isMobileView && !showAllSelectedMobile) {
+      return selectedStudents.slice(0, MOBILE_SELECTED_LIMIT);
     }
-  };
+
+    if (isMobileView && showAllSelectedMobile) {
+      return selectedStudents;
+    }
+
+    return selectedStudents.slice(0, DEFAULT_SELECTED_LIMIT);
+  }, [isMobileView, showAllSelectedMobile, selectedStudents]);
+
+  const hiddenSelectedCount = Math.max(0, selectedStudents.length - visibleSelectedStudents.length);
+
+  const selectedStudentStates = useMemo(
+    () => Array.from(new Set(selectedStudents.map((student) => student.state).filter(Boolean))),
+    [selectedStudents]
+  );
+
+  const hasMixedSelectedStates = selectedStudentStates.length > 1;
+
+  const filteredStudents = useMemo(() => {
+    const searchNormalized = normalize(searchTerm);
+
+    return (estudiantes || []).filter((student) => {
+      const byState =
+        filterState === "todos" ||
+        (filterState === "activos" && student.state === "Activo") ||
+        (filterState === "inactivos" && student.state === "Inactivo");
+
+      if (!byState) return false;
+      if (!searchNormalized) return true;
+
+      const fullName = normalize(`${student.name || ""} ${student.lastName || ""}`);
+      const dni = normalize(String(student.dni || ""));
+      const mail = normalize(student.mail || "");
+
+      return fullName.includes(searchNormalized) || dni.includes(searchNormalized) || mail.includes(searchNormalized);
+    });
+  }, [estudiantes, filterState, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / ITEMS_PER_PAGE));
 
   useEffect(() => {
-    const searchNormalized = searchTerm
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
-    const filtered = estudiantes.filter((student) => {
-      const nameNormalized = student.name
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
-      const lastNameNormalized = student.lastName
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
-      const fullName = `${nameNormalized} ${lastNameNormalized}`;
-      const dniNormalized = student.dni
-        ? student.dni.toString().toLowerCase()
-        : "";
+    if (currentPage > totalPages) setCurrentPage(1);
+  }, [currentPage, totalPages]);
 
-      return (
-        fullName.startsWith(searchNormalized) ||
-        nameNormalized.startsWith(searchNormalized) ||
-        lastNameNormalized.startsWith(searchNormalized) ||
-        dniNormalized.startsWith(searchNormalized)
-      ) && !selectedStudents.some((s) => s._id === student._id);
+  const paginatedStudents = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredStudents.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredStudents, currentPage]);
+
+  const overdueEligibleIds = useMemo(() => {
+    const set = new Set();
+    (cuotas || []).forEach((cuota) => {
+      if (cuota?.state !== "Vencido" || !cuota?.student?._id) return;
+      const student = (estudiantes || []).find((s) => s._id?.toString() === cuota.student._id?.toString());
+      if (student && student.state === "Activo" && student.mail) {
+        set.add(student._id);
+      }
     });
-    setFilteredStudents(filtered);
-  }, [searchTerm, estudiantes, selectedStudents]);
+    return set;
+  }, [cuotas, estudiantes]);
 
-  const handleSelectStudent = (student) => {
-    if (student.state === "Inactivo") {
-      Swal.fire("Error", "No se puede seleccionar un estudiante inactivo.", "error");
-      return;
-    }
-    if (!student.mail) {
-      Swal.fire("Error", "El estudiante no tiene un correo registrado.", "error");
-      return;
-    }
-    setSelectedStudents([...selectedStudents, student]);
-    setSearchTerm("");
-    setIsOverdueMode(false);
-    setActiveButton(null);
-  };
+  const selectableFilteredIds = useMemo(
+    () => filteredStudents.filter((s) => s.mail).map((s) => s._id),
+    [filteredStudents]
+  );
 
-  const handleRemoveStudent = (studentId) => {
-    setSelectedStudents(selectedStudents.filter((s) => s._id !== studentId));
+  const areAllFilteredSelected =
+    selectableFilteredIds.length > 0 && selectableFilteredIds.every((id) => selectedStudentIds.includes(id));
+
+  const toggleStudent = (student) => {
+    const isSelected = selectedStudentIds.includes(student._id);
+
+    if (!isSelected) {
+      if (!student.mail) {
+        Swal.fire("Error", "El estudiante no tiene un correo registrado.", "error");
+        return;
+      }
+    }
+    setSelectedStudentIds((prev) =>
+      isSelected ? prev.filter((id) => id !== student._id) : [...prev, student._id]
+    );
+
     if (isOverdueMode) {
-      generateOverdueMessages(selectedStudents.filter((s) => s._id !== studentId));
+      setIsOverdueMode(false);
+      setActiveButton(null);
     }
   };
 
-  const handleSelectAll = () => {
-    const activeStudents = estudiantes.filter((s) => s.state === "Activo" && s.mail);
-    if (activeStudents.length === 0) {
+  const handleSelectAllActive = () => {
+    const activeWithMail = (estudiantes || []).filter((s) => s.state === "Activo" && s.mail).map((s) => s._id);
+    if (activeWithMail.length === 0) {
       Swal.fire("Advertencia", "No hay estudiantes activos con correo registrado.", "warning");
       return;
     }
-    setSelectedStudents(activeStudents);
-    setSearchTerm("");
+
+    setSelectedStudentIds(activeWithMail);
     setIsOverdueMode(false);
-    setSubject("");
-    setDisplayMessage("");
     setActiveButton("selectAll");
   };
 
-  const generateOverdueMessages = (students) => {
-    if (students.length === 0) {
-      setSubject("");
-      setDisplayMessage("");
-      return [];
+  const handleSelectFiltered = () => {
+    if (selectableFilteredIds.length === 0) {
+      Swal.fire("Advertencia", "No hay estudiantes con correo en el filtro actual.", "warning");
+      return;
     }
+
+    if (areAllFilteredSelected) {
+      setSelectedStudentIds((prev) => prev.filter((id) => !selectableFilteredIds.includes(id)));
+    } else {
+      setSelectedStudentIds((prev) => Array.from(new Set([...prev, ...selectableFilteredIds])));
+    }
+
+    setIsOverdueMode(false);
+    setActiveButton("selectFiltered");
+  };
+
+  const buildOverdueEmails = (students) => {
+    if (!students.length) {
+      return { emails: [], summary: "", computedSubject: "" };
+    }
+
     const emails = [];
     let summary = "";
 
     students.forEach((student) => {
-      const studentCuotas = cuotas.filter(
-        (c) =>
-          c.student &&
-          c.student._id &&
-          c.student._id.toString() === student._id.toString() &&
-          c.state === "Vencido"
+      const studentCuotas = (cuotas || []).filter(
+        (c) => c?.student?._id?.toString() === student._id?.toString() && c.state === "Vencido"
       );
-      if (studentCuotas.length > 0) {
-        const cuotaDetails = studentCuotas
-          .map((cuota) => {
-            const cuotaDate = new Date(cuota.date);
-            return `- ${monthNames[cuotaDate.getMonth()]} ${cuotaDate.getFullYear()}: $${cuota.amount.toLocaleString("es-ES")}`;
-          })
-          .join("<br>");
 
-        const totalAmount = studentCuotas.reduce((sum, c) => sum + c.amount, 0);
+      if (studentCuotas.length === 0) return;
 
-        const emailContent = `
-          <h2>Recordatorio de cuotas vencidas - ${student.name} ${student.lastName}</h2>
-          <p>Estimado/a Padre/Madre</p>
-          <p>Le informamos que las siguientes cuotas se encuentran vencidas:</p>
-          <p>${cuotaDetails}</p>
-          <p>Total adeudado: $${totalAmount.toLocaleString("es-ES")}</p>
-          <p>Por favor, regularice la situación a la brevedad. Contáctenos si necesita más información.</p>
-          <p>Saludos cordiales,<br>Equipo Golazo</p>
-        `;
+      const cuotaDetails = studentCuotas
+        .map((cuota) => {
+          const cuotaDate = new Date(cuota.date);
+          return `- ${monthNames[cuotaDate.getMonth()]} ${cuotaDate.getFullYear()}: $${Number(cuota.amount || 0).toLocaleString("es-ES")}`;
+        })
+        .join("<br>");
 
-        emails.push({
-          recipient: student.mail,
-          subject: `Recordatorio de cuotas vencidas - ${student.name} ${student.lastName}`,
-          message: emailContent,
-        });
+      const totalAmount = studentCuotas.reduce((sum, c) => sum + Number(c.amount || 0), 0);
 
-        summary += `Cuotas vencidas para ${student.name} ${student.lastName}:\n${studentCuotas
-          .map((cuota) => {
-            const cuotaDate = new Date(cuota.date);
-            return `- ${monthNames[cuotaDate.getMonth()]} ${cuotaDate.getFullYear()}: $${cuota.amount.toLocaleString(
-              "es-ES"
-            )}`;
-          })
-          .join("\n")}\nTotal adeudado: $${totalAmount.toLocaleString("es-ES")}\n\n`;
-      }
+      const emailContent = `
+        <h2>Recordatorio de cuotas vencidas - ${student.name} ${student.lastName}</h2>
+        <p>Estimado/a Padre/Madre</p>
+        <p>Le informamos que las siguientes cuotas se encuentran vencidas:</p>
+        <p>${cuotaDetails}</p>
+        <p>Total adeudado: $${totalAmount.toLocaleString("es-ES")}</p>
+        <p>Por favor, regularice la situación a la brevedad. Contáctenos si necesita más información.</p>
+        <p>Saludos cordiales,<br>Equipo Golazo</p>
+      `;
+
+      emails.push({
+        recipient: student.mail,
+        subject: `Recordatorio de cuotas vencidas - ${student.name} ${student.lastName}`,
+        message: emailContent,
+      });
+
+      summary += `Cuotas vencidas para ${student.name} ${student.lastName}:\n${studentCuotas
+        .map((cuota) => {
+          const cuotaDate = new Date(cuota.date);
+          return `- ${monthNames[cuotaDate.getMonth()]} ${cuotaDate.getFullYear()}: $${Number(cuota.amount || 0).toLocaleString("es-ES")}`;
+        })
+        .join("\n")}\nTotal adeudado: $${totalAmount.toLocaleString("es-ES")}\n\n`;
     });
 
-    setSubject("Recordatorio de cuotas vencidas");
-    setDisplayMessage(summary.trim());
-    return emails;
+    return {
+      emails,
+      summary: summary.trim(),
+      computedSubject: "Recordatorio de cuotas vencidas",
+    };
   };
 
-  const handleSelectOverdue = async () => {
-    if (!Array.isArray(cuotas) || cuotas.length === 0) {
-      Swal.fire("Advertencia", "No hay cuotas cargadas en el sistema.", "warning");
-      return;
-    }
-    if (!Array.isArray(estudiantes) || estudiantes.length === 0) {
-      Swal.fire("Advertencia", "No hay estudiantes cargados en el sistema.", "warning");
-      return;
-    }
-
-    const studentsWithOverdue = [];
-    const processedStudents = new Set();
-
-    cuotas.forEach((cuota) => {
-      if (cuota.state === "Vencido" && cuota.student && cuota.student._id) {
-        const studentId = cuota.student._id.toString();
-        if (!processedStudents.has(studentId)) {
-          const student = estudiantes.find(
-            (s) => s._id.toString() === studentId && s.mail && s.state === "Activo"
-          );
-          if (student) {
-            studentsWithOverdue.push(student);
-            processedStudents.add(studentId);
-          }
-        }
-      }
-    });
-
-    if (studentsWithOverdue.length === 0) {
+  const handleSelectOverdue = () => {
+    const overdueIds = Array.from(overdueEligibleIds);
+    if (overdueIds.length === 0) {
       Swal.fire("Información", "No hay estudiantes con cuotas vencidas y correo registrado.", "info");
       return;
     }
 
-    setSelectedStudents(studentsWithOverdue);
-    setSearchTerm("");
+    setSelectedStudentIds(overdueIds);
     setIsOverdueMode(true);
-    generateOverdueMessages(studentsWithOverdue);
     setActiveButton("selectOverdue");
+
+    const students = (estudiantes || []).filter((s) => overdueIds.includes(s._id));
+    const { summary, computedSubject } = buildOverdueEmails(students);
+    setSubject(computedSubject);
+    setDisplayMessage(summary);
+  };
+
+  const handleRemoveStudent = (studentId) => {
+    setSelectedStudentIds((prev) => prev.filter((id) => id !== studentId));
   };
 
   const handleCancel = () => {
-    setSelectedStudents([]);
+    setSelectedStudentIds([]);
     setSubject("");
     setDisplayMessage("");
     setSearchTerm("");
-    setGlobalSearchTerm("");
+    setShowAllSelectedMobile(false);
     setIsOverdueMode(false);
     setActiveButton(null);
+    setProgress({ status: "idle", total: 0, sent: 0, failed: 0, pending: 0 });
+    closeProgressStream();
   };
 
-  const handleClearEmail = () => {
-    setSubject("");
-    setDisplayMessage("");
+  const formatMessageForEmail = (message) => {
+    if (!message) return "Mensaje no especificado";
+    return message.replace(/\n/g, "<br>");
   };
 
-    const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value);
+  const buildProgressId = () => {
+    if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+    return `mail-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
   };
 
   const handleSendToAll = async () => {
@@ -317,32 +338,41 @@ const EmailNotification = () => {
       Swal.fire("Error", "Selecciona al menos un estudiante.", "error");
       return;
     }
-        // Convertir saltos de línea a HTML br tags para emails personalizados
-    const formatMessageForEmail = (message) => {
-      if (!message) return "Mensaje no especificado";
-      return message.replace(/\n/g, '<br>');
-    };
 
-    const emails = isOverdueMode
-      ? generateOverdueMessages(selectedStudents)
-      : [
-          {
-            recipient: selectedStudents.map((s) => s.mail).join(","),
-            subject,
-            message: formatMessageForEmail(displayMessage),
-          },
-        ];    if (emails.length === 0) {
+    if (!isOverdueMode && (!subject.trim() || !displayMessage.trim())) {
+      Swal.fire("Error", "Completá asunto y mensaje para enviar.", "error");
+      return;
+    }
+
+    if (hasMixedSelectedStates) {
       Swal.fire(
-        "Error",
-        "No hay mensajes válidos para enviar. Verifica que los estudiantes seleccionados tengan cuotas vencidas.",
-        "error"
+        "Validación",
+        "No se puede enviar en el mismo lote a alumnos Activos e Inactivos. Separá la selección en dos envíos.",
+        "warning"
       );
       return;
     }
 
+    const emails = isOverdueMode
+      ? buildOverdueEmails(selectedStudents).emails
+      : [
+        {
+          recipient: selectedStudents.map((s) => s.mail).join(","),
+          subject: subject.trim(),
+          message: formatMessageForEmail(displayMessage),
+        },
+      ];
+
+    if (emails.length === 0) {
+      Swal.fire("Error", "No hay mensajes válidos para enviar.", "error");
+      return;
+    }
+
+    const plannedTotal = isOverdueMode ? emails.length : selectedStudents.length;
+
     const confirm = await Swal.fire({
       title: "¿Confirmar envío?",
-      text: `Se enviarán ${emails.length} correos personalizados a los estudiantes seleccionados.`,
+      text: `Se enviarán ${plannedTotal} correos a los estudiantes seleccionados.`,
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "Enviar",
@@ -352,159 +382,147 @@ const EmailNotification = () => {
     if (!confirm.isConfirmed) return;
 
     setLoading(true);
+
+    const progressId = buildProgressId();
+    setProgress({ status: "started", total: plannedTotal, sent: 0, failed: 0, pending: plannedTotal });
+
+    closeProgressStream();
+    progressStreamRef.current = createEmailProgressStream(progressId, {
+      onProgress: (snapshot) => setProgress(snapshot),
+      onDone: (snapshot) => setProgress(snapshot),
+      onError: (snapshot) => setProgress((prev) => ({ ...prev, ...snapshot, status: "failed" })),
+    });
+
     try {
-      await sendMultipleEmails(emails);
-      Swal.fire("¡Éxito!", `Se enviaron ${emails.length} correos correctamente.`, "success");
+      const result = await sendMultipleEmails(emails, {
+        progressId,
+        enforceSingleState: true,
+        selectedStudentIds,
+        forcePerRecipient: true,
+      });
+      const total = Number(result?.total ?? plannedTotal);
+      const sent = Number(result?.sent ?? 0);
+      const failedCount = Number(result?.failedCount ?? 0);
+      const failedRecipients = Array.isArray(result?.failed) ? result.failed : [];
+
+      setProgress({
+        status: failedCount > 0 ? "completed_with_errors" : "completed",
+        total,
+        sent,
+        failed: failedCount,
+        pending: Math.max(0, total - sent - failedCount),
+      });
+
+      if (failedCount > 0) {
+        const failedPreview = failedRecipients
+          .slice(0, 5)
+          .map((entry) => `- ${entry.recipient}`)
+          .join("<br>");
+
+        await Swal.fire({
+          title: "Envío parcial",
+          html: `Se enviaron <b>${sent}</b> de <b>${total}</b> correos.<br><br>${failedPreview}${failedRecipients.length > 5 ? "<br>..." : ""}`,
+          icon: "warning",
+        });
+      } else {
+        await Swal.fire("¡Éxito!", `Se enviaron ${sent} de ${total} correos.`, "success");
+      }
+
       handleCancel();
     } catch (error) {
+      setProgress((prev) => ({ ...prev, status: "failed" }));
       Swal.fire("Error", error.message, "error");
     } finally {
       setLoading(false);
+      setTimeout(() => closeProgressStream(), 2000);
     }
   };
 
-  const handleLogout = async () => {
-    navigate("/login");
-    setIsMenuOpen(false);
-  };
+  const progressPercent = progress.total > 0
+    ? Math.min(100, Math.round(((progress.sent + progress.failed) / progress.total) * 100))
+    : 0;
 
   return (
-    <div className={`app-container ${windowWidth <= 576 ? "mobile-view" : ""}`}>
+    <div className={`app-container ${windowWidth <= 576 ? "mobile-view" : ""} email-page`}>
       {windowWidth <= 576 && (
-        <AppNavbar isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />
+        <AppNavbar
+          isMenuOpen={isMenuOpen}
+          setIsMenuOpen={setIsMenuOpen}
+          searchQuery={searchTerm}
+          setSearchQuery={setSearchTerm}
+        />
       )}
-      {windowWidth > 576 && (
-        <header className="desktop-nav-header">
-          <div className="header-logo" onClick={() => navigate('/')}>
-            <img src={logo} alt="Valladares Fútbol" className="logo-image" />
-          </div>
-               <div className="search-box">
-            <FaSearch className="search-symbol" />
-            <input
-              type="text"
-              placeholder="Buscar alumnos..."
-              className="search-field"
-              value={searchTerm}
-              onChange={handleSearchChange}
-            />
-            {searchTerm && (
-              <div className="student-dropdown">
-                {dataLoading ? (
-                  <div className="student-option">Cargando estudiantes...</div>
-                ) : filteredStudents.length ? (
-                  filteredStudents.map((student) => (
-                    <div
-                      key={student._id}
-                      className="student-option"
-                      onClick={() => handleSelectStudent(student)}
-                    >
-                      {student.name} {student.lastName} (DNI: {student.dni})
-                    </div>
-                  ))
-                ) : (
-                  <div className="student-option">No hay coincidencias</div>
+      {windowWidth > 576 && <DesktopNavbar logoSrc={logo} />}
+      <div className="dashboard-layout">
+        <Sidebar isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} activeRoute="/email-notifications" />
+        <main className={`email-main-content ${!isMenuOpen ? "expanded" : ""}`}>
+          <section className="email-top-bar">
+
+            <div className="email-top-metrics">
+              <span>Seleccionados: <b>{selectedStudents.length}</b></span>
+              <span>Filtrados: <b>{filteredStudents.length}</b></span>
+              {selectedStudentStates.length === 1 && (
+                <span>Estado lote: <b>{selectedStudentStates[0]}</b></span>
+              )}
+            </div>
+          </section>
+          <section className="email-card email-filters-card">
+            <div className="email-search-row">
+              <div className="email-search-box">
+                <FaSearch className="email-search-icon" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="email-search-input"
+                  disabled={loading || dataLoading}
+                  placeholder="Buscar por nombre, apellido, DNI o mail"
+                />
+                {searchTerm && (
+                  <button className="email-clear-btn" onClick={() => setSearchTerm("")} type="button">
+                    <FaTimesClear />
+                  </button>
                 )}
               </div>
-            )}
-          </div>
-          <div className="nav-right-section">
-            <div
-              className="profile-container"
-              onClick={() => setIsProfileOpen(!isProfileOpen)}
-            >
-              <FaUserCircle className="profile-icon" />
-              <span className="profile-greeting">Hola, {userData?.name || "Usuario"}</span>
-              <FaChevronDown className={`arrow-icon ${isProfileOpen ? "rotated" : ""}`} />
-              {isProfileOpen && (
-                <div className="profile-menu">
-                  <div
-                    className="menu-option"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate("/user");
-                      setIsProfileOpen(false);
+              <div className="email-state-filters" role="tablist" aria-label="Filtro de estado de estudiantes">
+                {[
+                  { key: "todos", label: "Todos" },
+                  { key: "activos", label: "Activos" },
+                  { key: "inactivos", label: "Inactivos" },
+                ].map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    className={`email-filter-pill ${filterState === option.key ? "active" : ""}`}
+                    onClick={() => {
+                      setFilterState(option.key);
+                      setCurrentPage(1);
                     }}
                   >
-                    <FaUserCog className="option-icon" /> Mi Perfil
-                  </div>
-                  <div
-                    className="menu-option"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate("/settings");
-                      setIsProfileOpen(false);
-                    }}
-                  >
-                    <FaCog className="option-icon" /> Configuración
-                  </div>
-                  <div className="menu-separator"></div>
-                  <div
-                    className="menu-option logout-option"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleLogout();
-                      setIsProfileOpen(false);
-                    }}
-                  >
-                    <FaUserCircle className="option-icon" /> Cerrar Sesión
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
-      )}
-      <div className="dashboard-layout">
-        <aside className={`sidebar ${isMenuOpen ? "open" : "closed"}`}>
-          <nav className="sidebar-nav">
-            <div className="sidebar-section">
-              <button className="menu-toggle" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-                {isMenuOpen ? <FaTimes /> : <FaBars />}
-              </button>
-              <ul className="sidebar-menu">
-                {menuItems.map((item, index) => (
-                  <li
-                    key={index}
-                    className={`sidebar-menu-item ${item.route === "/email-notifications" ? "active" : ""}`}
-                    onClick={() => (item.action ? item.action() : navigate(item.route))}
-                  >
-                    <span className="menu-icon">{item.icon}</span>
-                    <span className="menu-text">{item.name}</span>
-                  </li>
+                    {option.label}
+                  </button>
                 ))}
-              </ul>
+              </div>
             </div>
-          </nav>
-        </aside>
-        <main className={`main-content ${!isMenuOpen ? "expanded" : ""}`}>
-          <section className="dashboard-header">
-          </section>
-          <section className="student-selection">
-            <div className="selected-students">
-              {selectedStudents.slice(0, 10).map((student) => (
-                <div key={student._id} className="selected-student">
-                  {student.name} {student.lastName}
-                  <FaTimes
-                    onClick={() => handleRemoveStudent(student._id)}
-                    className="remove-icon"
-                  />
-                </div>
-              ))}
-              {selectedStudents.length > 10 && (
-                <div className="selected-student">
-                  +{selectedStudents.length - 10} más
-                </div>
-              )}
-            </div>
-            <div className="selection-actions">
+            <div className="email-bulk-actions">
               <button
+                type="button"
                 className={`quick-action-btn email select-all-btn ${activeButton === "selectAll" ? "active" : ""}`}
-                onClick={handleSelectAll}
+                onClick={handleSelectAllActive}
                 disabled={loading || dataLoading}
               >
                 Todos Activos
               </button>
               <button
+                type="button"
+                className={`quick-action-btn email select-all-btn ${activeButton === "selectFiltered" ? "active" : ""}`}
+                onClick={handleSelectFiltered}
+                disabled={loading || dataLoading}
+              >
+                {areAllFilteredSelected ? "Quitar filtrados" : "Seleccionar filtrados"}
+              </button>
+              <button
+                type="button"
                 className={`quick-action-btn email select-overdue-btn ${activeButton === "selectOverdue" ? "active" : ""}`}
                 onClick={handleSelectOverdue}
                 disabled={loading || dataLoading}
@@ -512,15 +530,96 @@ const EmailNotification = () => {
                 Cuotas Vencidas
               </button>
               <button
-                className="quick-action-btn email"
+                type="button"
+                className="quick-action-btn cancel-btn"
                 onClick={handleCancel}
                 disabled={loading || dataLoading}
               >
-                Cancelar
+                Limpiar
               </button>
             </div>
           </section>
-          <section className="email-composition">
+          <section className="email-card email-table-card">
+            <div className="email-table-wrapper">
+              <table className="email-students-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: "50px" }}>#</th>
+                    <th>Alumno</th>
+                    <th>DNI</th>
+                    <th>Mail</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dataLoading ? (
+                    <tr><td colSpan={5} className="email-empty-row">Cargando estudiantes...</td></tr>
+                  ) : paginatedStudents.length === 0 ? (
+                    <tr><td colSpan={5} className="email-empty-row">No hay resultados para el filtro actual.</td></tr>
+                  ) : (
+                    paginatedStudents.map((student) => {
+                      const selected = selectedStudentIds.includes(student._id);
+                      const disabled = !student.mail;
+                      return (
+                        <tr key={student._id} className={selected ? "is-selected" : ""}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              disabled={disabled || loading}
+                              onChange={() => toggleStudent(student)}
+                            />
+                          </td>
+                          <td>{student.name} {student.lastName}</td>
+                          <td>{student.dni || "-"}</td>
+                          <td>{student.mail || "Sin correo"}</td>
+                          <td>
+                            <span className={`email-state-chip ${student.state === "Activo" ? "active" : "inactive"}`}>
+                              {student.state}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              hideIfSinglePage
+            />
+          </section>
+          <section className="email-card email-selected-card">
+            <h3 className="email-subtitle">Destinatarios seleccionados</h3>
+            {hasMixedSelectedStates && (
+              <div className="email-mixed-warning">
+                Mezcla detectada: hay alumnos Activos e Inactivos seleccionados. Separá el envío por estado.
+              </div>
+            )}
+            <div className="selected-students">
+              {selectedStudents.length === 0 && <span className="email-muted">No hay estudiantes seleccionados.</span>}
+              {visibleSelectedStudents.map((student) => (
+                <div key={student._id} className="selected-student">
+                  {student.name} {student.lastName}
+                  <FaTimes onClick={() => handleRemoveStudent(student._id)} className="remove-icon" />
+                </div>
+              ))}
+              {hiddenSelectedCount > 0 && <span className="email-muted">+{hiddenSelectedCount} más...</span>}
+            </div>
+            {isMobileView && selectedStudents.length > MOBILE_SELECTED_LIMIT && (
+              <button
+                type="button"
+                className="email-show-more-btn"
+                onClick={() => setShowAllSelectedMobile((prev) => !prev)}
+              >
+                {showAllSelectedMobile ? "Ver menos" : `Ver más (${selectedStudents.length - MOBILE_SELECTED_LIMIT})`}
+              </button>
+            )}
+          </section>
+          <section className="email-card email-composition-card">
             <h2 className="section-title">Componer Correo</h2>
             <input
               type="text"
@@ -530,38 +629,57 @@ const EmailNotification = () => {
               disabled={loading || isOverdueMode || dataLoading}
               placeholder="Asunto..."
             />
-                 <textarea
+            <textarea
               value={displayMessage}
               onChange={(e) => setDisplayMessage(e.target.value)}
               className="email-message"
               disabled={loading || isOverdueMode || dataLoading}
-              placeholder="Escribe tu mensaje aquí...&#10;&#10;Presiona Enter para crear saltos de línea."
+              placeholder="Escribe tu mensaje aquí..."
               rows={8}
-              style={{
-                whiteSpace: 'pre-wrap',
-                lineHeight: '1.5'
-              }}
             />
-               {displayMessage && !isOverdueMode && (
+            {displayMessage && !isOverdueMode && (
               <div className="email-preview">
-                <h4 style={{marginBottom: '10px', color: 'var(--text-light)'}}>Vista previa del email:</h4>
-                <div className="preview-content" dangerouslySetInnerHTML={{ __html: displayMessage.replace(/\n/g, '<br>') }} />
+                <h4>Vista previa del email</h4>
+                <div className="preview-content" style={{ whiteSpace: "pre-wrap" }}>{displayMessage}</div>
+              </div>
+            )}
+            {(loading || progress.status !== "idle") && (
+              <div className="email-progress-card" aria-live="polite">
+                <div className="email-progress-header">
+                  <span>
+                    {loading ? <FaSpinner className="spin" /> : null} Enviados {progress.sent} de {progress.total}
+                  </span>
+                  <span>{progressPercent}%</span>
+                </div>
+                <div className="email-progress-track">
+                  <div className="email-progress-fill" style={{ width: `${progressPercent}%` }} />
+                </div>
+                <div className="email-progress-stats">
+                  <span>Exitosos: {progress.sent}</span>
+                  <span>Fallidos: {progress.failed}</span>
+                  <span>Pendientes: {progress.pending}</span>
+                </div>
               </div>
             )}
             <div className="email-actions">
               <button
+                type="button"
                 className="quick-action-btn cancel-btn"
-                onClick={handleClearEmail}
+                onClick={() => {
+                  setSubject("");
+                  setDisplayMessage("");
+                }}
                 disabled={loading || isOverdueMode || dataLoading}
               >
-                Borrar
+                Borrar texto
               </button>
               <button
-                className="quick-action-btn"
+                type="button"
+                className="quick-action-btn email"
                 onClick={handleSendToAll}
-                disabled={loading || dataLoading}
+                disabled={loading || dataLoading || hasMixedSelectedStates}
               >
-                {loading ? "Enviando..." : `Enviar a ${selectedStudents.length} Seleccionado(s)`}
+                {loading ? "Enviando..." : `Enviar a ${selectedStudents.length} seleccionado(s)`}
               </button>
             </div>
           </section>

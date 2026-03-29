@@ -1,10 +1,6 @@
 import { useState, useContext, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  FaBars, FaTimes, FaUsers,FaList, FaMoneyBill, FaExchangeAlt,
-  FaCalendarCheck, FaUserCog, FaCog, FaEnvelope, FaHome, FaArrowLeft, FaUserCircle, FaChevronDown,
-  FaTrash, FaEdit, FaPlus, FaClipboardList, FaSearch, FaTimes as FaTimesClear
-} from 'react-icons/fa';
+import { FaTimes, FaSearch, FaTimes as FaTimesClear } from 'react-icons/fa';
+import { FiEdit3, FiTrash2 } from "react-icons/fi";
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import 'dayjs/locale/es';
@@ -15,19 +11,18 @@ import MotionFormModal from '../modalMotion/MotionFormModal';
 import './motion.css';
 import AppNavbar from '../navbar/AppNavbar';
 import logo from '../../assets/logo.png';
+import DesktopNavbar from '../navbar/DesktopNavbar';
+import Sidebar from '../sidebar/Sidebar';
 
 dayjs.locale('es');
 dayjs.extend(utc);
 
 const Motion = () => {
-  const { motions, fetchMotions, createMotion, updateMotion, deleteMotion, getMotionsByDateRange, loading } = useContext(MotionContext);
-  const { auth, logout, userData } = useContext(LoginContext);
-  const navigate = useNavigate();
-  const [isMenuOpen, setIsMenuOpen] = useState(true);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const { motions, createMotion, updateMotion, deleteMotion, getMotionsByDateRange } = useContext(MotionContext);
+  useContext(LoginContext);
+  const [isMenuOpen, setIsMenuOpen] = useState(window.innerWidth > 576);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [searchTerm, setSearchTerm] = useState(''); // Estado para el buscador (solo diseño)
-
   const [filters, setFilters] = useState({
     startDate: dayjs().startOf('month').format('YYYY-MM-DD'),
     endDate: dayjs().format('YYYY-MM-DD'),
@@ -37,30 +32,13 @@ const Motion = () => {
   const [selectedMotion, setSelectedMotion] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [showAlert, setShowAlert] = useState(false);
-  const [alertMessage, setAlertMessage] = useState('');
 
   const today = dayjs().format('YYYY-MM-DD');
-
-  const menuItems = [
-    { name: 'Inicio', route: '/', icon: <FaHome />, category: 'principal' },
-    { name: 'Alumnos', route: '/student', icon: <FaUsers />, category: 'principal' },
-    { name: 'Cuotas', route: '/share', icon: <FaMoneyBill />, category: 'finanzas' },
-    { name: 'Movimientos', route: '/motion', icon: <FaExchangeAlt />, category: 'finanzas' },
-    { name: 'Asistencia', route: '/attendance', icon: <FaCalendarCheck />, category: 'principal' },
-    { name: 'Usuarios', route: '/user', icon: <FaUserCog />, category: 'configuracion' },
-    { name: 'Ajustes', route: '/settings', icon: <FaCog />, category: 'configuracion' },
-    { name: 'Envios de Mail', route: '/email-notifications', icon: <FaEnvelope />, category: 'comunicacion' },
-    { name: 'Listado de Alumnos', route: '/liststudent', icon: <FaClipboardList />, category: 'informes' },
-    { name: 'Lista de Movimientos', route: '/listeconomic', icon: <FaList />, category: 'finanzas' }
-  ];
 
   useEffect(() => {
     if (filters.startDate && filters.endDate) {
       getMotionsByDateRange(filters.startDate, filters.endDate)
         .catch((error) => {
-          setAlertMessage('Error al cargar los movimientos. Intenta de nuevo.');
-          setShowAlert(true);
           console.error('Error en getMotionsByDateRange:', error);
         });
     }
@@ -70,34 +48,27 @@ const Motion = () => {
     const handleResize = () => {
       const newWidth = window.innerWidth;
       setWindowWidth(newWidth);
-      if (newWidth <= 576) {
-        setIsMenuOpen(false);
-      } else {
-        setIsMenuOpen(true);
-      }
     };
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const handleSave = async (motionData) => {
-    try {
-      if (isEditing) {
-        await updateMotion(motionData._id, motionData);
-      } else {
-        await createMotion(motionData);
-      }
-      setSelectedMotion(null);
-      setIsEditing(false);
-      setShowModal(false);
-      await getMotionsByDateRange(filters.startDate, filters.endDate);
-    } catch (error) {
-      setAlertMessage('Error al guardar el movimiento. Intenta de nuevo.');
-      setShowAlert(true);
-      console.error('Error en handleSave:', error);
+const handleSave = async (motionData) => {
+  try {
+    if (isEditing) {
+      await updateMotion(motionData._id, motionData);
+    } else {
+      await createMotion(motionData);
     }
-  };
+    setSelectedMotion(null);
+    setIsEditing(false);
+    setShowModal(false);
+  } catch (error) {
+    console.error('Error en handleSave:', error);
+    throw error;
+  }
+};
 
   const handleEdit = (motion) => {
     setSelectedMotion(motion);
@@ -114,10 +85,8 @@ const Motion = () => {
   const handleDelete = async (id) => {
     try {
       await deleteMotion(id);
-      await getMotionsByDateRange(filters.startDate, filters.endDate);
     } catch (error) {
-      setAlertMessage('Error al eliminar el movimiento. Intenta de nuevo.');
-      setShowAlert(true);
+
       console.error('Error en handleDelete:', error);
     }
   };
@@ -128,28 +97,36 @@ const Motion = () => {
     setIsEditing(false);
   };
 
-  const handleLogout = async () => {
-    logout();
-    navigate('/login');
-    setIsMenuOpen(false);
-  };
+  const normalizedSearch = searchTerm
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 
   const filteredData = motions
     .filter((item) => {
       if (!item?.date) return false;
       const itemDate = dayjs(item.date);
-      return (
-        (itemDate.isSame(dayjs(filters.startDate), 'day') ||
-          itemDate.isAfter(dayjs(filters.startDate))) &&
-        (itemDate.isSame(dayjs(filters.endDate), 'day') ||
-          itemDate.isBefore(dayjs(filters.endDate))) &&
-        (!filters.incomeType || item.incomeType === filters.incomeType)
-      );
+      const matchesDate =
+        (itemDate.isSame(dayjs(filters.startDate), 'day') || itemDate.isAfter(dayjs(filters.startDate))) &&
+        (itemDate.isSame(dayjs(filters.endDate), 'day') || itemDate.isBefore(dayjs(filters.endDate)));
+
+      const matchesType = !filters.incomeType || item.incomeType === filters.incomeType;
+
+      const concept = String(item.concept || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const method = String(item.paymentMethod || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+      const matchesSearch =
+        !normalizedSearch ||
+        concept.includes(normalizedSearch) ||
+        method.includes(normalizedSearch);
+
+      return matchesDate && matchesType && matchesSearch;
     })
     .map((item) => ({
       ...item,
       concept: item.concept || 'Sin concepto',
     }));
+
 
   const capitalize = (string) => {
     if (!string) return '';
@@ -159,91 +136,42 @@ const Motion = () => {
   return (
     <div className={`app-container ${windowWidth <= 576 ? 'mobile-view' : ''}`}>
       {windowWidth <= 576 && (
-        <AppNavbar
-          isMenuOpen={isMenuOpen}
-          setIsMenuOpen={setIsMenuOpen}
-        />
+        <AppNavbar isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />
       )}
       {windowWidth > 576 && (
-        <header className="desktop-nav-header">
-          <div className="header-logo-setting" onClick={() => navigate('/')}>
-            <img src={logo} alt="Valladares Fútbol" className="logo-image" />
-          </div>
-          <div className="nav-right-section">
-            <div
-              className="profile-container"
-              onClick={() => setIsProfileOpen(!isProfileOpen)}
-            >
-              <FaUserCircle className="profile-icon" />
-              <span className="profile-greeting">
-                Hola, {userData?.name || 'Usuario'}
-              </span>
-              <FaChevronDown className={`arrow-icon ${isProfileOpen ? 'rotated' : ''}`} />
-              {isProfileOpen && (
-                <div className="profile-menu">
-                  <div
-                    className="menu-option"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate('/user');
-                      setIsProfileOpen(false);
-                    }}
-                  >
-                    <FaUserCog className="option-icon" /> Mi Perfil
-                  </div>
-                  <div
-                    className="menu-option"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate('/settings');
-                      setIsProfileOpen(false);
-                    }}
-                  >
-                    <FaCog className="option-icon" /> Configuración
-                  </div>
-                  <div className="menu-separator"></div>
-                  <div
-                    className="menu-option logout-option"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleLogout();
-                      setIsProfileOpen(false);
-                    }}
-                  >
-                    <FaUserCircle className="option-icon" /> Cerrar Sesión
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
+        <DesktopNavbar
+          logoSrc={logo}
+        />
       )}
       <div className="dashboard-layout">
-        <aside className={`sidebar ${isMenuOpen ? 'open' : 'closed'}`}>
-          <nav className="sidebar-nav">
-            <div className="sidebar-section">
-              <button className="menu-toggle" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-                {isMenuOpen ? <FaTimes /> : <FaBars />}
-              </button>
-              <ul className="sidebar-menu">
-                {menuItems.map((item, index) => (
-                  <li
-                    key={index}
-                    className={`sidebar-menu-item ${item.route === '/motion' ? 'active' : ''}`}
-                    onClick={() => item.action ? item.action() : navigate(item.route)}
-                  >
-                    <span className="menu-icon">{item.icon}</span>
-                    <span className="menu-text">{item.name}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </nav>
-        </aside>
+        <Sidebar
+          isMenuOpen={isMenuOpen}
+          setIsMenuOpen={setIsMenuOpen}
+          activeRoute="/motion"
+        />
         <div className="main-content">
-          <div className="welcome-text">
-            <h1>Movimientos</h1>
-          </div>
+          {windowWidth > 576 && (
+            <section className="search-section">
+              <div className="search-container">
+                <FaSearch className="search-icon" />
+                <input
+                  type="text"
+                  placeholder="Buscar movimientos..."
+                  className="search-input"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                {searchTerm && (
+                  <button
+                    className="search-clear"
+                    onClick={() => setSearchTerm('')}
+                  >
+                    <FaTimesClear />
+                  </button>
+                )}
+              </div>
+            </section>
+          )}
           <div className="motion-date-filter">
             <div className="motion-filter-section">
               <div className="motion-filter-row">
@@ -335,16 +263,16 @@ const Motion = () => {
                     <td>{capitalize(item.incomeType)}</td>
                     <td className="motion-actions">
                       <Button
-                        className="motion-edit-btn"
+                        className="action-btn-student"
                         onClick={() => handleEdit(item)}
                       >
-                        <span className="icon-btn"><FaEdit /></span>
+                        <FiEdit3 />
                       </Button>
                       <Button
-                        className="motion-delete-btn"
+                        className="action-btn-student"
                         onClick={() => handleDelete(item._id)}
                       >
-                        <span className="icon-btn"><FaTrash /></span>
+                        <FiTrash2 />
                       </Button>
                     </td>
                   </tr>

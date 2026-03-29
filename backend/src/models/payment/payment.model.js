@@ -40,12 +40,27 @@ const paymentConceptSchema = new mongoose.Schema({
     minlength: [1, 'El concepto debe tener al menos 1 carácter'],
     maxlength: [50, 'El concepto no puede exceder 50 caracteres'],
   },
+    normalizedKey: {
+    type: String,
+    trim: true,
+  },
 }, {
   timestamps: true,
 });
+
+paymentConceptSchema.index(
+  { normalizedKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      normalizedKey: { $exists: true, $type: 'string', $ne: '' }
+    }
+  }
+);
 
 const Payment = mongoose.model('Payment', paymentSchema);
 const PaymentConcept = mongoose.model('PaymentConcept', paymentConceptSchema);
 
 // Exportar ambos modelos
 export { Payment, PaymentConcept };
+export default Payment;

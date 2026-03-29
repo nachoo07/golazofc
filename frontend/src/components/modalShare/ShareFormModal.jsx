@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Modal, Button, Form } from "react-bootstrap";
-import AlertCustom from "../alert/AlertCustom"; // Ajusta la ruta
 import "./shareFormModal.css";
 
 const ShareFormModal = ({
@@ -13,111 +12,118 @@ const ShareFormModal = ({
   onSave,
   isEditing,
   today,
+  selectedYear,
+  externalErrors = {},
+  onClearExternalErrors = () => { },
 }) => {
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("");
-  const [alertMessage, setAlertMessage] = useState("");
-  const [showAlert, setShowAlert] = useState(false);
-  const [alertType, setAlertType] = useState("error"); // Añadir estado para el tipo de alerta
+  const [formErrors, setFormErrors] = useState({});
+
+  const toInputDate = (value) => {
+    if (!value) return "";
+    if (typeof value === "string") {
+      const isoPrefix = value.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (isoPrefix) return isoPrefix[1];
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return "";
+    const year = parsed.getFullYear();
+    const month = String(parsed.getMonth() + 1).padStart(2, "0");
+    const day = String(parsed.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  useEffect(() => {
+    if (Object.keys(externalErrors).length > 0) {
+      setFormErrors((prev) => ({ ...prev, ...externalErrors }));
+    }
+  }, [externalErrors]);
 
   useEffect(() => {
     if (show && selectedCuota && selectedCuota._id) {
+      const hasExistingPaymentDate = Boolean(selectedCuota.paymentdate);
+
       setAmount(selectedCuota.amount?.toString() || "");
-      setDate(selectedCuota.paymentdate ? formatDate(selectedCuota.paymentdate) : "");
+      setDate(
+        hasExistingPaymentDate
+          ? toInputDate(selectedCuota.paymentdate)
+          : (today || "")
+      );
       setPaymentMethod(selectedCuota.paymentmethod || "");
       setSelectedMonth(selectedCuota.date ? new Date(selectedCuota.date).getMonth().toString() : "");
+      setFormErrors({});
     } else if (!show || !selectedCuota) {
       resetForm();
     }
-  }, [show, selectedCuota]);
-
-  const formatDate = (dateString) =>
-    dateString ? new Date(dateString).toISOString().split("T")[0] : "";
+  }, [show, selectedCuota, today]);
 
   const resetForm = () => {
     setAmount("");
-    setDate("");
+    setDate(today || "");
     setPaymentMethod("");
     setSelectedMonth("");
-    setAlertMessage("");
-    setShowAlert(false);
-    setAlertType("error");
+    setFormErrors({});
   };
 
   const validateForm = () => {
-    const minDate = new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString().split("T")[0];
+    const minDate = toInputDate(new Date(new Date().setFullYear(new Date().getFullYear() - 1)));
     const maxAmount = 1000000;
+    const nextErrors = {};
 
+    const hasPaymentDate = Boolean(date);
+    const hasPaymentMethod = Boolean(paymentMethod);
 
-
-    if (selectedMonth === "") {
-      setAlertMessage("Debes seleccionar un mes.");
-      setShowAlert(true);
-      setAlertType("error");
-      return false;
+    if (selectedMonth === "") nextErrors.selectedMonth = "Debes seleccionar un mes.";
+    if (!amount || Number.isNaN(Number(amount)) || Number(amount) <= 0 || Number(amount) > maxAmount) {
+      nextErrors.amount = `El monto debe ser mayor a 0 y menor o igual a ${maxAmount}.`;
     }
 
-        if (!amount || isNaN(amount) || parseFloat(amount) <= 0 || parseFloat(amount) > maxAmount) {
-      setAlertMessage(`El monto debe ser un número positivo menor o igual a ${maxAmount}.`);
-      setShowAlert(true);
-      setAlertType("error");
-      return false;
-    }
-       if (!date || new Date(date) > new Date(today) || new Date(date) < new Date(minDate)) {
-      setAlertMessage(`La fecha de pago debe estar entre ${minDate} y ${today}.`);
-      setShowAlert(true);
-      setAlertType("error");
-      return false;
+    if (hasPaymentDate !== hasPaymentMethod) {
+      if (!hasPaymentDate) nextErrors.date = "Debes cargar la fecha de pago.";
+      if (!hasPaymentMethod) nextErrors.paymentMethod = "Debes seleccionar un método de pago.";
     }
 
-    if (!paymentMethod || paymentMethod === "") {
-      setAlertMessage("Debes seleccionar un método de pago.");
-      setShowAlert(true);
-      setAlertType("error");
-      return false;
+    if (hasPaymentDate && (date > today || date < minDate)) {
+      nextErrors.date = "La fecha de pago ingresada no es válida.";
     }
 
     if (selectedStudent?.state === "Inactivo") {
-      setAlertMessage("No se puede crear ni actualizar cuotas para un estudiante inactivo.");
-      setShowAlert(true);
-      setAlertType("error");
-      return false;
+      nextErrors.general = "No se puede crear ni actualizar cuotas para un estudiante inactivo.";
     }
 
-    return true;
+    setFormErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
+
 
   const handleSave = () => {
     if (!validateForm()) return;
 
-    const cuotaDate = new Date(new Date().getFullYear(), parseInt(selectedMonth), 1);
+    const cuotaYear = selectedYear || new Date().getFullYear().toString();
+    const cuotaDate = `${cuotaYear}-${String(parseInt(selectedMonth, 10) + 1).padStart(2, "0")}-01`;
 
     const cuotaData = {
       student: selectedStudent?._id,
       amount: parseFloat(amount),
       date: cuotaDate,
-      paymentmethod: paymentMethod,
-      paymentdate: date,
     };
+
+    if (paymentMethod) {
+      cuotaData.paymentmethod = paymentMethod;
+    }
+
+    if (date) {
+      cuotaData.paymentdate = date;
+    }
 
     if (selectedCuota && selectedCuota._id) {
       cuotaData._id = selectedCuota._id;
     }
 
     onSave(cuotaData);
-    
-    // Mostrar mensaje de éxito
-    setAlertMessage("La cuota ha sido actualizada correctamente.");
-    setAlertType("success");
-    setShowAlert(true);
-    
-    // Esperar brevemente para que se vea el mensaje antes de cerrar
-    setTimeout(() => {
-      resetForm();
-      onHide();
-    }, 1500);
   };
 
   const handleCancel = () => {
@@ -125,22 +131,13 @@ const ShareFormModal = ({
     onHide();
   };
 
-  const handleAlertClose = () => {
-    setShowAlert(false);
-  };
   return (
     <Modal show={show} onHide={handleCancel} centered>
       <Modal.Header closeButton className="modal-header-share">
         <Modal.Title className='modal-title-share'>{isEditing ? "Editar Cuota" : "Crear Cuota"}</Modal.Title>
       </Modal.Header>
       <Modal.Body className="modal-body-share">
-        {showAlert && (
-            <AlertCustom 
-            message={alertType === "success" ? "ÉXITO\n" + alertMessage : alertMessage} 
-            type={alertType} 
-            onClose={handleAlertClose} 
-          />
-        )}
+        {formErrors.general && <div className="share-inline-error">{formErrors.general}</div>}
         <Form>
           <Form.Group className="mb-3">
             <Form.Label>Mes</Form.Label>
@@ -153,7 +150,12 @@ const ShareFormModal = ({
             ) : (
               <Form.Select
                 value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
+                onChange={(e) => {
+                  setSelectedMonth(e.target.value);
+                  setFormErrors((prev) => ({ ...prev, selectedMonth: undefined, general: undefined }));
+                  onClearExternalErrors();
+                }}
+                isInvalid={Boolean(formErrors.selectedMonth)}
               >
                 <option value="">Selecciona un mes</option>
                 {availableMonths.map((month, index) => (
@@ -163,18 +165,29 @@ const ShareFormModal = ({
                 ))}
               </Form.Select>
             )}
+            {!isEditing && formErrors.selectedMonth && (
+              <Form.Control.Feedback type="invalid" style={{ display: "block" }}>
+                {formErrors.selectedMonth}
+              </Form.Control.Feedback>
+            )}
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Monto</Form.Label>
             <Form.Control
               type="number"
-              min="0"
+              min="0.01"
               max={1000000}
               step="1000"
               placeholder="Monto"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => {
+                setAmount(e.target.value);
+                setFormErrors((prev) => ({ ...prev, amount: undefined, general: undefined }));
+                onClearExternalErrors();
+              }}
+              isInvalid={Boolean(formErrors.amount)}
             />
+            <Form.Control.Feedback type="invalid">{formErrors.amount}</Form.Control.Feedback>
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Fecha de Pago</Form.Label>
@@ -182,20 +195,32 @@ const ShareFormModal = ({
               type="date"
               max={today}
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={(e) => {
+                setDate(e.target.value);
+                setFormErrors((prev) => ({ ...prev, date: undefined, general: undefined }));
+                onClearExternalErrors();
+              }}
+              isInvalid={Boolean(formErrors.date)}
             />
+            <Form.Control.Feedback type="invalid">{formErrors.date}</Form.Control.Feedback>
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Método de Pago</Form.Label>
             <Form.Select
               value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
+              onChange={(e) => {
+                setPaymentMethod(e.target.value);
+                setFormErrors((prev) => ({ ...prev, paymentMethod: undefined, general: undefined }));
+                onClearExternalErrors();
+              }}
               required
+              isInvalid={Boolean(formErrors.paymentMethod)}
             >
               <option value="">Selecciona un método</option>
               <option value="Efectivo">Efectivo</option>
               <option value="Transferencia">Transferencia</option>
             </Form.Select>
+            <Form.Control.Feedback type="invalid">{formErrors.paymentMethod}</Form.Control.Feedback>
           </Form.Group>
         </Form>
       </Modal.Body>

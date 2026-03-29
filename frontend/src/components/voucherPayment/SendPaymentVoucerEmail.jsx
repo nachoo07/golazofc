@@ -5,7 +5,12 @@ import { EmailContext } from "../../context/email/EmailContext";
 import { DateTime } from "luxon";
 import "./voucherPayment.css";
 
-const SendPaymentVoucherEmail = ({ student, payment, onSendingStart, onSendingEnd }) => {
+const SendPaymentVoucherEmail = ({   student,
+  payment,
+  onSendingStart = () => {},
+  onSendingEnd = () => {},
+  disabled = false,
+}) => {
   const [loading, setLoading] = useState(false);
   const [isDataReady, setIsDataReady] = useState(false);
   const { sendVoucherEmail } = useContext(EmailContext);
@@ -14,6 +19,7 @@ const SendPaymentVoucherEmail = ({ student, payment, onSendingStart, onSendingEn
     if (student && payment && payment.paymentDate && payment.paymentMethod && payment.concept) {
       setIsDataReady(true);
     } else {
+      console.warn("Datos insuficientes para generar el comprobante de pago:", { student, payment });
       setIsDataReady(false);
     }
   }, [student, payment]);
@@ -25,11 +31,11 @@ const SendPaymentVoucherEmail = ({ student, payment, onSendingStart, onSendingEn
     return parsedDate.toFormat("dd-MM-yyyy");
   };
 
-  const formatCuil = (dni) => {
+  const formatDni = (dni) => {
     if (!dni) return "N/A";
-    const cleanCuil = dni.replace(/\D/g, "");
-    if (cleanCuil.length === 11) {
-      return `${cleanCuil.substring(0, 2)}-${cleanCuil.substring(2, 10)}-${cleanCuil.substring(10)}`;
+    const cleanDni = dni.replace(/\D/g, "");
+    if (cleanDni.length === 8) {
+      return `${cleanDni.substring(0, 2)}.${cleanDni.substring(2, 5)}.${cleanDni.substring(5, 8)}`;
     }
     return dni;
   };
@@ -41,13 +47,13 @@ const SendPaymentVoucherEmail = ({ student, payment, onSendingStart, onSendingEn
       student: {
         name: student.name || "N/A",
         lastName: student.lastName || "",
-        dni: formatCuil(student.dni),
+        dni: formatDni(student.dni),
       },
       payment: {
         concept: payment.concept || "N/A",
-        amount: payment.amount
-          ? new Intl.NumberFormat("es-ES", { style: "currency", currency: "CLP", minimumFractionDigits: 0 }).format(payment.amount)
-          : "N/A",
+        amount: payment.amount !== undefined && payment.amount !== null
+          ? Number(payment.amount)
+          : null,
         paymentMethod: payment.paymentMethod || "N/A",
         paymentDate: payment.paymentDate,
       },
@@ -84,9 +90,9 @@ const SendPaymentVoucherEmail = ({ student, payment, onSendingStart, onSendingEn
   return (
     <>
       <Button
-        className="send-voucher-payment"
+        className="action-btn-student"
         onClick={handleSendVoucher}
-        disabled={loading || !isDataReady}
+        disabled={loading || disabled || !isDataReady}
         title="Enviar comprobante de pago"
       >
         {!loading && <FaFileInvoice />}

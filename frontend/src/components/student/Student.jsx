@@ -1,74 +1,47 @@
-import React, { useState, useContext, useEffect, useRef } from "react";
-import { useNavigate, useLocation, useParams } from "react-router-dom";
-import {FaSearch, FaBars, FaList, FaTimes, FaUsers, FaClipboardList, FaMoneyBill, FaExchangeAlt, FaCalendarCheck, FaUserCog, FaCog, FaEnvelope, FaHome, FaArrowLeft, FaUserCircle,
-  FaChevronDown, FaPlus, FaEdit, FaTrash, FaTimes as FaTimesClear, FaFileExcel} from "react-icons/fa";
+import React, { useState, useContext, useEffect, useMemo } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { FaSearch, FaPlus, FaTimes as FaTimesClear, FaFileExcel } from "react-icons/fa";
+import { FiUser, FiCreditCard, FiEdit3, FiTrash2 } from "react-icons/fi";
+import Swal from "sweetalert2";
+import { format, parse, isValid } from "date-fns";
 import { StudentsContext } from "../../context/student/StudentContext";
 import { LoginContext } from "../../context/login/LoginContext";
 import StudentFormModal from "../modal/StudentFormModal";
-import Swal from "sweetalert2";
+import { showErrorAlert, showSuccessToast } from "../../utils/alerts/Alerts";
+import { getFirstValidationMessage, isValidationErrorResponse, mapValidationErrors } from "../../utils/forms/validationErrors";
 import "./student.css";
 import AppNavbar from '../navbar/AppNavbar';
 import logo from '../../assets/logo.png';
-import { Spinner } from "react-bootstrap";
-import { format, parse, parseISO, isValid } from 'date-fns';
+import DesktopNavbar from '../navbar/DesktopNavbar';
+import Sidebar from '../sidebar/Sidebar';
+import Pagination from '../pagination/Pagination'
 import * as XLSX from 'xlsx';
 
 const Student = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { estudiantes, obtenerEstudiantes, addEstudiante, updateEstudiante, deleteEstudiante, importStudents, } = useContext(StudentsContext);
-  const { auth, logout, userData, authReady } = useContext(LoginContext);
-  const [student, setStudent] = useState(null);
-  const { id } = useParams();
+  const { estudiantes, obtenerEstudiantes, addEstudiante, updateEstudiante, deleteEstudiante, importStudents, loading } = useContext(StudentsContext);
+  const { auth, authReady } = useContext(LoginContext);
   const [searchTerm, setSearchTerm] = useState("");
   const [show, setShow] = useState(false);
-  const profileRef = useRef(null);
   const [editStudent, setEditStudent] = useState(null);
+  const [formErrors, setFormErrors] = useState({});
   const [filterState, setFilterState] = useState("todos");
   const [formData, setFormData] = useState({
-    name: "",lastName: "",dni: "",birthDate: "",address: "",mail: "",category: "",guardianName: "",guardianPhone: "",profileImage: null,state: "Activo",hasSiblingDiscount: false, sure: false, league: false,});
- const [currentPage, setCurrentPage] = useState(1);
-  const [showAlert, setShowAlert] = useState(false);
-  const [alertMessage, setAlertMessage] = useState("");
-  const [isMenuOpen, setIsMenuOpen] = useState(true);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+    name: "", lastName: "", dni: "", birthDate: "", address: "", mail: "", category: "", guardianName: "", guardianPhone: "", profileImage: null, state: "Activo", hasSiblingDiscount: false, sure: "", league: "",
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isMenuOpen, setIsMenuOpen] = useState(window.innerWidth > 576);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [isImporting, setIsImporting] = useState(false);
   const [isInitialMount, setIsInitialMount] = useState(true);
   const studentsPerPage = 10;
-
-  const menuItems = [
-    { name: "Inicio", route: "/", icon: <FaHome />, category: "principal" },
-    { name: "Alumnos", route: "/student", icon: <FaUsers />, category: "principal" },
-    { name: "Cuotas", route: "/share", icon: <FaMoneyBill />, category: "finanzas" },
-    { name: "Movimientos", route: "/motion", icon: <FaExchangeAlt />, category: "finanzas", },
-    { name: "Asistencia", route: "/attendance", icon: <FaCalendarCheck />, category: "principal", },
-    { name: "Usuarios", route: "/user", icon: <FaUserCog />, category: "configuración" },
-    { name: "Ajustes", route: "/settings", icon: <FaCog />, category: "configuración" },
-    { name: "Envíos de correo", route: "/email-notifications", icon: <FaEnvelope />, category: "comunicación", },
-    { name: "Listado de alumnos", route: "/liststudent", icon: <FaClipboardList />, category: "informes", },
-    { name: "Lista de movimientos", route: "/listeconomic", icon: <FaList />, category: "finanzas", },
-  ];
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (profileRef.current && !profileRef.current.contains(event.target)) {
-        setIsProfileOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const FILTER_OPTIONS = ["todos", "activo", "inactivo"];
 
   useEffect(() => {
     const handleResize = () => {
       const newWidth = window.innerWidth;
       setWindowWidth(newWidth);
-      if (newWidth <= 576) {
-        setIsMenuOpen(false);
-      } else {
-        setIsMenuOpen(true);
-      }
     };
     handleResize();
     window.addEventListener("resize", handleResize);
@@ -80,7 +53,6 @@ const Student = () => {
       return;
     }
     if (!auth || (auth !== 'admin' && auth !== 'user')) {
-      Swal.fire('¡Error!', 'No estás autorizado. Por favor, inicia sesión nuevamente.', 'error');
       navigate('/login');
       return;
     }
@@ -103,12 +75,11 @@ const Student = () => {
           status: error.response?.status,
         });
         if (error.response?.status === 401) {
-          Swal.fire('¡Error!', 'No estás autorizado. Por favor, inicia sesión nuevamente.', 'error');
           navigate('/login');
         } else if (error.response?.status === 404) {
-          Swal.fire('¡Error!', 'No se encontraron estudiantes.', 'error');
+          showErrorAlert('!Error!', 'No se encontraron estudiantes.');
         } else {
-          Swal.fire('¡Error!', error.response?.data?.message || 'No se pudieron cargar los estudiantes.', 'error');
+          showErrorAlert('¡Error!', error.response?.data?.message || 'No se pudieron cargar los estudiantes.');
         }
       }
     };
@@ -117,7 +88,7 @@ const Student = () => {
     setIsInitialMount(false);
   }, [auth, authReady, navigate, location.search, obtenerEstudiantes]);
 
-    useEffect(() => {
+  useEffect(() => {
     if (isInitialMount) return;
 
     const queryParams = new URLSearchParams();
@@ -127,7 +98,7 @@ const Student = () => {
 
     const queryString = queryParams.toString();
     const newUrl = queryString ? `/student?${queryString}` : '/student';
-    
+
     if (location.pathname + location.search !== newUrl) {
       navigate(newUrl, { replace: true });
     }
@@ -136,8 +107,7 @@ const Student = () => {
   const handleImportExcel = async (e) => {
     const file = e.target.files[0];
     if (!file) {
-      setAlertMessage('Por favor selecciona un archivo Excel');
-      setShowAlert(true);
+      showErrorAlert('¡Error!', 'Por favor selecciona un archivo Excel.');
       return;
     }
 
@@ -147,8 +117,7 @@ const Student = () => {
     ];
 
     if (!validTypes.includes(file.type)) {
-      setAlertMessage('El archivo debe ser un Excel (.xlsx)');
-      setShowAlert(true);
+      showErrorAlert('¡Error!', 'El archivo debe ser un Excel (.xlsx).');
       return;
     }
 
@@ -195,8 +164,8 @@ const Student = () => {
               profileImage,
               state: row.Estado || 'Activo',
               hasSiblingDiscount: row['Descuento por Hermano'] === 'Sí' || false,
-              sure: row['Seguro'] === 'Si' || false,
-              league: row['Liga'] === '1' || false,
+              sure: row['Seguro'] || 'Sin especificar',
+              league: row['Liga'] || 'Sin especificar',
               rowNumber: index + 2, // Incluir el número de fila (comienza en 2)
             };
           });
@@ -236,7 +205,7 @@ const Student = () => {
               },
             });
           }
-            } finally {
+        } finally {
           setIsImporting(false);
           e.target.value = '';
         }
@@ -255,7 +224,7 @@ const Student = () => {
     }
   };
 
-    const handleViewPayments = (estudianteId) => {
+  const handleViewPayments = (estudianteId) => {
     const queryParams = new URLSearchParams();
     if (currentPage !== 1) queryParams.set('page', currentPage);
     if (searchTerm) queryParams.set('search', searchTerm);
@@ -265,142 +234,154 @@ const Student = () => {
     navigate(`/paymentstudent/${estudianteId}${queryString ? `?${queryString}` : ''}`);
   };
 
-  const filteredStudents = estudiantes.filter((estudiante) => {
-    const searchNormalized = searchTerm
+  const normalizeText = (value = "") =>
+    value
+      .toString()
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");
 
-    const nameNormalized = estudiante.name
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
+  const studentsCountByState = useMemo(() => {
+    return estudiantes.reduce(
+      (acc, estudiante) => {
+        const normalizedState = normalizeText(estudiante.state);
+        if (normalizedState === "activo") acc.activo += 1;
+        if (normalizedState === "inactivo") acc.inactivo += 1;
+        acc.todos += 1;
+        return acc;
+      },
+      { todos: 0, activo: 0, inactivo: 0 }
+    );
+  }, [estudiantes]);
 
-    const lastNameNormalized = estudiante.lastName
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
+  const filteredStudents = useMemo(() => {
+    const searchNormalized = normalizeText(searchTerm);
 
-    const fullName = `${nameNormalized} ${lastNameNormalized}`;
+    return estudiantes.filter((estudiante) => {
+      const nameNormalized = normalizeText(estudiante.name);
+      const lastNameNormalized = normalizeText(estudiante.lastName);
+      const fullName = `${nameNormalized} ${lastNameNormalized}`;
+      const dniNormalized = normalizeText(estudiante.dni);
 
-    const dniSearch = estudiante.dni
-      ? estudiante.dni.toString().toLowerCase().includes(searchNormalized)
-      : false;
+      const matchesSearch = fullName.includes(searchNormalized) || dniNormalized.includes(searchNormalized);
+      const studentState = normalizeText(estudiante.state);
+      const matchesState = filterState === "todos" || studentState === filterState;
 
-    const matchesSearch = fullName.includes(searchNormalized) || dniSearch;
-
-    const matchesState =
-      filterState === "todos" ||
-      estudiante.state.toLowerCase() === filterState.toLowerCase();
-    return matchesSearch && matchesState;
-  });
+      return matchesSearch && matchesState;
+    });
+  }, [estudiantes, searchTerm, filterState]);
 
   const totalPages = Math.ceil(filteredStudents.length / studentsPerPage) || 1;
   const indexOfLastStudent = currentPage * studentsPerPage;
   const indexOfFirstStudent = indexOfLastStudent - studentsPerPage;
-  const currentStudents = filteredStudents.slice(indexOfFirstStudent,indexOfLastStudent);
+  const currentStudents = filteredStudents.slice(indexOfFirstStudent, indexOfLastStudent);
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
-  
+
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
     setCurrentPage(1);
   };
 
- const handleShow = (student = null) => {
-  if (student) {
-    setEditStudent(student);
-    const dateInputValue = student.birthDate || '';
-    setFormData({
-      ...student,
-      birthDate: dateInputValue,
-      dateInputValue,
-      profileImage: student.profileImage,
-      hasSiblingDiscount: student.hasSiblingDiscount || false,
-      sure: student.sure || null, // Usar null si no hay valor
-      league: student.league || null, // Usar null si no hay valor
-    });
-  } else {
-    setEditStudent(null);
-    setFormData({
-      name: '',
-      lastName: '',
-      dni: '',
-      birthDate: '',
-      dateInputValue: '',
-      address: '',
-      mail: '',
-      category: '',
-      guardianName: '',
-      guardianPhone: '',
-      profileImage: null,
-      state: 'Activo',
-      hasSiblingDiscount: undefined,
-      sure: null, // Valor nulo por defecto
-      league: null, // Valor nulo por defecto
-    });
-  }
-  setShow(true);
-};
+  const handleShow = (student = null) => {
+    const normalizeOptionalChoice = (value) => (value === 'Si' || value === 'No' ? value : '');
+
+    if (student) {
+      setEditStudent(student);
+      const dateInputValue = student.birthDate || '';
+      setFormData({
+        ...student,
+        birthDate: dateInputValue,
+        dateInputValue,
+        profileImage: student.profileImage,
+        hasSiblingDiscount: student.hasSiblingDiscount || false,
+        sure: normalizeOptionalChoice(student.sure),
+        league: normalizeOptionalChoice(student.league),
+      });
+    } else {
+      setEditStudent(null);
+      setFormData({
+        name: '',
+        lastName: '',
+        dni: '',
+        birthDate: '',
+        dateInputValue: '',
+        address: '',
+        mail: '',
+        category: '',
+        guardianName: '',
+        guardianPhone: '',
+        profileImage: null,
+        state: 'Activo',
+        hasSiblingDiscount: undefined,
+        sure: '',
+        league: '',
+      });
+    }
+    setFormErrors({});
+    setShow(true);
+  };
 
   const handleClose = () => {
     setShow(false);
+    setFormErrors({});
   };
 
- const handleChange = (e) => {
-  const { name, value, type, checked, files } = e.target;
-  if (name === 'dateInputValue') {
-    setFormData({
-      ...formData,
-      birthDate: value,
-      dateInputValue: value,
-    });
-  } else {
-    setFormData({
-      ...formData,
-      [name]: type === 'checkbox' 
-        ? (name === 'sure' || name === 'league' 
-          ? (checked ? 'Si' : 'No') 
-          : checked) 
-        : type === 'file' 
-          ? files[0] 
-          : value,
-    });
-  }
-};
+  const handleChange = (e) => {
+    const { name, value, type, checked, files } = e.target;
+    setFormErrors((prev) => ({ ...prev, [name]: '' }));
+    if (name === 'dateInputValue') {
+      setFormData({
+        ...formData,
+        birthDate: value,
+        dateInputValue: value,
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: type === 'checkbox' ? checked : type === 'file' ? files[0] : value,
+      });
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const normalizedSure = formData.sure === 'Si' || formData.sure === 'No' ? formData.sure : undefined;
+      const normalizedLeague = formData.league === 'Si' || formData.league === 'No' ? formData.league : undefined;
+      const { sure: _sure, league: _league, dateInputValue, ...restFormData } = formData;
+
       if (formData.profileImage instanceof File) {
         const validImageTypes = ['image/jpeg', 'image/png', 'image/heic', 'image/heif', 'image/webp', 'image/gif'];
         if (!validImageTypes.includes(formData.profileImage.type)) {
-          Swal.fire('¡Error!', 'La imagen de perfil debe ser un archivo JPEG, PNG, HEIC, WEBP o GIF.', 'error');
+          showErrorAlert('¡Error!', 'La imagen de perfil debe ser un archivo JPEG, PNG, HEIC, WEBP o GIF.');
           return;
         }
         if (formData.profileImage.size > 5 * 1024 * 1024) {
-          Swal.fire('¡Error!', 'La imagen de perfil no debe exceder los 5MB.', 'error');
+          showErrorAlert('¡Error!', 'La imagen de perfil no debe exceder los 5MB.');
           return;
         }
       }
 
       const formattedData = {
-        ...formData,
-        birthDate: formData.dateInputValue,
+        ...restFormData,
+        birthDate: dateInputValue,
+        ...(normalizedSure !== undefined ? { sure: normalizedSure } : {}),
+        ...(normalizedLeague !== undefined ? { league: normalizedLeague } : {}),
       };
 
       let result;
       if (editStudent) {
         result = await updateEstudiante(formattedData);
         if (result.success) {
-          Swal.fire('¡Éxito!', 'El perfil del estudiante ha sido actualizado correctamente.', 'success');
+          showSuccessToast('El perfil del estudiante ha sido actualizado correctamente.');
         } else {
           throw new Error(result.message);
         }
       } else {
         result = await addEstudiante(formattedData);
         if (result.success) {
-          Swal.fire('¡Éxito!', 'El estudiante ha sido agregado correctamente.', 'success');
+          showSuccessToast('El estudiante ha sido agregado correctamente.');
         } else {
           throw new Error(result.message);
         }
@@ -413,22 +394,28 @@ const Student = () => {
         status: error.response?.status,
       });
       if (error.response?.status === 401) {
-        Swal.fire('¡Error!', 'No estás autorizado. Por favor, inicia sesión nuevamente.', 'error');
         navigate('/login');
-      } else if (error.response?.status === 400) {
-        Swal.fire('¡Error!', error.response?.data?.message || 'Los datos del estudiante son inválidos.', 'error');
+      } else if (isValidationErrorResponse(error)) {
+        const mappedErrors = mapValidationErrors(error);
+        if (Object.keys(mappedErrors).length > 0) {
+          setFormErrors(mappedErrors);
+        } else {
+          setFormErrors({ general: getFirstValidationMessage(error) || 'Los datos del estudiante son inválidos.' });
+        }
       } else if (error.response?.status === 404) {
-        Swal.fire('¡Error!', 'Estudiante no encontrado.', 'error');
+        showErrorAlert('¡Error!', 'Estudiante no encontrado.');
       } else {
-        Swal.fire('¡Error!', error.response?.data?.message || (editStudent ? 'No se pudo actualizar el estudiante.' : 'No se pudo agregar el estudiante.'), 'error');
+        showErrorAlert('¡Error!', error.response?.data?.message || (editStudent ? 'No se pudo actualizar el estudiante.' : 'No se pudo agregar el estudiante.'));
       }
     }
   };
 
-    const handleDelete = async (studentId) => {
+  const handleDelete = async (studentId) => {
     try {
-      await deleteEstudiante(studentId);
-      Swal.fire('¡Éxito!', 'El estudiante ha sido eliminado correctamente.', 'success');
+      const result = await deleteEstudiante(studentId);
+      if (result?.deleted) {
+        showSuccessToast('El estudiante ha sido eliminado correctamente.');
+      }
     } catch (error) {
       console.error('handleDelete: Error deleting student:', {
         message: error.message,
@@ -436,33 +423,24 @@ const Student = () => {
         status: error.response?.status,
       });
       if (error.response?.status === 401) {
-        Swal.fire('¡Error!', 'No estás autorizado. Por favor, inicia sesión nuevamente.', 'error');
         navigate('/login');
       } else {
-        Swal.fire('¡Error!', error.response?.data?.message || 'No se pudo eliminar el estudiante.', 'error');
+        showErrorAlert('¡Error!', error.response?.data?.message || 'No se pudo eliminar el estudiante.');
       }
     }
   };
 
-   const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
-  };
-
- const handleLogout = async () => {
-    await logout();
-    navigate("/login");
-    setIsMenuOpen(false);
-  };
-
-  const handleFilterChange = (e) => {
-    const { name, checked } = e.target;
-    if (checked) {
-      setFilterState(name);
+  const handleFilterChange = (nextFilter) => {
+    if (!FILTER_OPTIONS.includes(nextFilter)) {
+      return;
+    }
+    if (nextFilter !== filterState) {
+      setFilterState(nextFilter);
       setCurrentPage(1);
     }
   };
 
-   const handleViewDetail = (studentId) => {
+  const handleViewDetail = (studentId) => {
     const queryParams = new URLSearchParams();
     if (currentPage !== 1) queryParams.set('page', currentPage);
     if (searchTerm) queryParams.set('search', searchTerm);
@@ -475,200 +453,81 @@ const Student = () => {
   return (
     <div className={`app-container ${windowWidth <= 576 ? "mobile-view" : ""}`}>
       {windowWidth <= 576 && (
-        <AppNavbar
-          isMenuOpen={isMenuOpen}
-          setIsMenuOpen={setIsMenuOpen}
-          searchQuery={searchTerm}
-          setSearchQuery={setSearchTerm}
-        />
+        <AppNavbar isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />
       )}
       {windowWidth > 576 && (
-        <header className="desktop-nav-header">
-          <div className="header-logo" onClick={() => navigate("/")}>
-            <img src={logo} alt="Valladares Fútbol" className="logo-image"/>
-          </div>
-          <div className="search-box">
-            <FaSearch className="search-symbol" />
-            <input
-              type="text"
-              placeholder="Buscar alumnos..."
-              className="search-field"
-              value={searchTerm}
-              onChange={handleSearchChange}
-            />
-          </div>
-          <div className="nav-right-section">
-            <div
-              className="profile-container"
-              ref={profileRef}
-              onClick={() => setIsProfileOpen(!isProfileOpen)}
-            >
-              <FaUserCircle className="profile-icon" />
-              <span className="profile-greeting">
-                Hola, {userData?.name || "Usuario"}
-              </span>
-              <FaChevronDown
-                className={`arrow-icon ${isProfileOpen ? "rotated" : ""}`}
-              />
-              {isProfileOpen && (
-                <div className="profile-menu">
-                  <div
-                    className="menu-option"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate("/user");
-                      setIsProfileOpen(false);
-                    }}
-                  >
-                    <FaUserCog className="option-icon" /> Mi Perfil
-                  </div>
-                  <div
-                    className="menu-option"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate("/settings");
-                      setIsProfileOpen(false);
-                    }}
-                  >
-                    <FaCog className="option-icon" /> Configuración
-                  </div>
-                  <div className="menu-divider"></div>
-                  <div
-                    className="menu-option logout-option"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleLogout();
-                      setIsProfileOpen(false);
-                    }}
-                  >
-                    <FaUserCircle className="option-icon" /> Cerrar Sesión
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
+        <DesktopNavbar
+          logoSrc={logo}
+        />
       )}
       <div className="dashboard-layout">
-        <aside className={`sidebar ${isMenuOpen ? "open" : "closed"}`}>
-          <nav className="sidebar-nav">
-            <div className="sidebar-section">
-              <button className="menu-toggle" onClick={toggleMenu}>
-                {isMenuOpen ? <FaTimes /> : <FaBars />}
-              </button>
-              <ul className="sidebar-menu">
-                {menuItems.map((item, index) => (
-                  <li
-                    key={index}
-                    className={`sidebar-menu-item ${item.route === "/student" ? "active" : ""}`
-                    }
-                    onClick={() =>
-                      item.route && navigate(item.route)
-                    }
-                  >
-                    <span className="menu-icon">{item.icon}</span>
-                    <span className="menu-text">{item.name}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </nav>
-        </aside>
+        <Sidebar
+          isMenuOpen={isMenuOpen}
+          setIsMenuOpen={setIsMenuOpen}
+          activeRoute="/student"
+        />
         <main className="main-content">
-          <section className="dashboard-welcome">
-            <div className="welcome-text">
-              <h1>Panel de Alumnos</h1>
-            </div>
-          </section>
-          {windowWidth <= 576 && (
-            <div className="mobile-search-container">
-              <div className="mobile-search-container">
-                <FaSearch className="mobile-search-icon" />
-                <input
-                  type="text"
-                  placeholder="Buscar alumnos..."
-                  className="mobile-search-input"
-                  value={searchTerm}
-                  onChange={handleSearchChange}
-                />
-                {searchTerm && (
-                  <button
-                    className="mobile-search-clear"
-                    onClick={() => setSearchTerm("")}
-                  >
-                    <FaTimesClear />
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-          <section className="students-filter">
-            <div className="filter-actions">
-              <div className="checkbox-filters">
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    name="todos"
-                    checked={filterState === "todos"}
-                    onChange={handleFilterChange}
-                  />
-                  <span className="checkbox-custom">Todos</span>
-                </label>
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    name="activo"
-                    checked={filterState === "activo"}
-                    onChange={handleFilterChange}
-                  />
-                  <span className="checkbox-custom">Activo</span>
-                </label>
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    name="inactivo"
-                    checked={filterState === "inactivo"}
-                    onChange={handleFilterChange}
-                  />
-                  <span className="checkbox-custom">Inactivo</span>
-                </label>
-              </div>
-              <div className="btn-student">
-                <button className="add-btn" onClick={() => handleShow()}>
-                  <FaPlus /> Agregar estudiante
+          <div className="students-header">
+            <div className={`students-search-container ${windowWidth <= 576 ? "mobile-search-container" : "desktop-search-container"}`}>
+              <FaSearch className="mobile-search-icon" />
+              <input
+                type="text"
+                placeholder={windowWidth <= 576 ? "Buscar alumnos..." : "Buscar por nombre, apellido o DNI..."}
+                className="mobile-search-input"
+                value={searchTerm}
+                onChange={handleSearchChange}
+                disabled={loading}
+              />
+              {searchTerm && (
+                <button
+                  className="mobile-search-clear"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setCurrentPage(1);
+                  }}
+                  disabled={loading}
+                >
+                  <FaTimesClear />
                 </button>
-                <label htmlFor="import-excel" className="import-btn">
-                  <FaFileExcel style={{ marginRight: "10px" }} /> Importar Excel
-                </label>
-                <input
-                  type="file"
-                  id="import-excel"
-                  accept=".xlsx, .xls"
-                  style={{ display: "none" }}
-                  onChange={handleImportExcel}
-                  disabled={isImporting}
-                />
+              )}
+            </div>
+            <div className="students-actions">
+              <button className="add-btn-student" onClick={() => handleShow()} disabled={loading}>
+                <FaPlus /> Agregar Alumno
+              </button>
+              <button className="add-btn-student" onClick={() => document.getElementById('excelInput').click()} disabled={loading || isImporting}>
+                <FaFileExcel /> Importar Excel
+              </button>
+              <input
+                type="file"
+                id="excelInput"
+                accept=".xlsx, .xls"
+                style={{ display: 'none' }}
+                onChange={handleImportExcel}
+                disabled={loading || isImporting}
+              />
+            </div>
+          </div>
+          <section className="students-filter">
+            <div className="filter-actions-student">
+              <div className="checkbox-filters-student" role="tablist" aria-label="Filtro de estado de estudiantes">
+                {FILTER_OPTIONS.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={`filter-pill ${filterState === option ? "active" : ""}`}
+                    onClick={() => handleFilterChange(option)}
+                    aria-pressed={filterState === option}
+                    disabled={loading}
+                  >
+                    {option.charAt(0).toUpperCase() + option.slice(1)}
+                    <span className="filter-count">{studentsCountByState[option] || 0}</span>
+                  </button>
+                ))}
               </div>
             </div>
           </section>
           <section className="students-table-section">
-            {showAlert && (
-              <div className="custom-alert">
-                <div className="alert-content">
-                  <h4>¡Atención!</h4>
-                  <p>{alertMessage}</p>
-                  <button onClick={() => setShowAlert(false)}>Cerrar</button>
-                </div>
-              </div>
-            )}
-            {isImporting && (
-              <div className="loading-overlay">
-                <div className="loading-spinner">
-                  <Spinner animation="border" variant="primary" />
-                  <p>Procesando archivo Excel...</p>
-                </div>
-              </div>
-            )}
             <div className="table-wrapper">
               <table className="students-table">
                 <thead>
@@ -693,41 +552,47 @@ const Student = () => {
                         <td>{estudiante.lastName}</td>
                         <td>{estudiante.dni}</td>
                         <td className='club'>{estudiante.state}</td>
-                        <td className="action-buttons">
-                          <button
-                            className="action-btn-student"
-                            onClick={() => handleViewDetail(estudiante._id)}
-                            title="Ver Detalle"
-                          >
-                            <FaUserCircle />
-                          </button>
-                           <button
-                            className="action-btn-student"
-                            onClick={() => handleViewPayments(estudiante._id)}
-                            title="Ver Pagos"
-                          >
-                            <FaMoneyBill />
-                          </button>
-                          <button
-                            className="action-btn-student"
-                            onClick={() => handleShow(estudiante)}
-                            title="Editar"
-                          >
-                            <FaEdit />
-                          </button>
-                          <button
-                            className="action-btn-student"
-                            onClick={() => handleDelete(estudiante._id)}
-                            title="Eliminar"
-                          >
-                            <FaTrash />
-                          </button>
+                        <td className="action-cell">
+                          <div className="action-buttons">
+                            <button
+                              className="action-btn-student"
+                              onClick={() => handleViewDetail(estudiante._id)}
+                              title="Ver Detalle"
+                              disabled={loading}
+                            >
+                              <FiUser />
+                            </button>
+                            <button
+                              className="action-btn-student "
+                              onClick={() => handleViewPayments(estudiante._id)}
+                              title="Ver Pagos"
+                              disabled={loading}
+                            >
+                              <FiCreditCard />
+                            </button>
+                            <button
+                              className="action-btn-student "
+                              onClick={() => handleShow(estudiante)}
+                              title="Editar"
+                              disabled={loading}
+                            >
+                              <FiEdit3 />
+                            </button>
+                            <button
+                              className="action-btn-student"
+                              onClick={() => handleDelete(estudiante._id)}
+                              title="Eliminar"
+                              disabled={loading}
+                            >
+                              <FiTrash2 />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
                   ) : (
                     <tr className="empty-table-row">
-                      <td colSpan="8" className="empty-table-message">
+                      <td colSpan="6" className="empty-table-message">
                         {searchTerm
                           ? `No se encontraron alumnos que coincidan con "${searchTerm}"`
                           : filterState !== "todos"
@@ -739,34 +604,12 @@ const Student = () => {
                 </tbody>
               </table>
             </div>
-            <div className="pagination">
-              <button
-                disabled={currentPage === 1}
-                onClick={() => paginate(currentPage - 1)}
-                className="pagination-btn"
-              >
-                «
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                (number) => (
-                  <button
-                    key={number}
-                    className={`pagination-btn ${currentPage === number ? "active" : ""}`
-                    }
-                    onClick={() => paginate(number)}
-                  >
-                    {number}
-                  </button>
-                )
-              )}
-              <button
-                disabled={currentPage === totalPages}
-                onClick={() => paginate(currentPage + 1)}
-                className="pagination-btn"
-              >
-                »
-              </button>
-            </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={paginate}
+              disabled={loading}
+            />
           </section>
           <StudentFormModal
             show={show}
@@ -774,6 +617,7 @@ const Student = () => {
             handleSubmit={handleSubmit}
             handleChange={handleChange}
             formData={formData}
+            formErrors={formErrors}
           />
         </main>
       </div>

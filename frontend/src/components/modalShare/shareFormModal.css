@@ -3,7 +3,7 @@
     justify-content: center !important;
     align-items: center !important;
     padding: 10px !important;
-    background-color: #e31fa8 !important;
+    background-color: var(--color-primary) !important;
     border-bottom: 1px solid #ccc !important;
 }
 
@@ -39,7 +39,7 @@
 }
 
 .btn-modal-guardar {
-    background: #e31fa8 !important;
+    background: var(--color-primary) !important;
     color: white;
     border: none;
     padding: 6px !important;

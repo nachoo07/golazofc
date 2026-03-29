@@ -4,7 +4,13 @@ import { FaFileInvoice, FaSpinner } from "react-icons/fa";
 import { EmailContext } from "../../context/email/EmailContext";
 import "./SendVoucherEmail.css";
 
-const SendVoucherEmail = ({ student, cuota, onSendingStart, onSendingEnd, onStudentUpdate }) => {
+const SendVoucherEmail = ({   student,
+  cuota,
+  onSendingStart = () => {},
+  onSendingEnd = () => {},
+  onStudentUpdate,
+  disabled = false,
+}) => {
   const [loading, setLoading] = useState(false);
   const [isDataReady, setIsDataReady] = useState(false);
   const { sendVoucherEmail } = useContext(EmailContext);
@@ -13,27 +19,16 @@ const SendVoucherEmail = ({ student, cuota, onSendingStart, onSendingEnd, onStud
     if (student && cuota && cuota.paymentdate && cuota.paymentmethod) {
       setIsDataReady(true);
     } else {
+      console.warn("Datos insuficientes para generar el comprobante:", { student, cuota });
       setIsDataReady(false);
     }
   }, [student, cuota]);
 
-  const formatDateWithTimezone = (date) => {
-    if (!date) return 'N/A';
-    const parsedDate = new Date(date);
-    if (isNaN(parsedDate)) return 'N/A';
-    return parsedDate.toLocaleDateString('es-ES', {
-      timeZone: 'America/Argentina/Tucuman',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
-
-  const formatCuil = (dni) => {
+  const formatDni = (dni) => {
     if (!dni) return "N/A";
-    const cleanCuil = dni.replace(/\D/g, "");
-    if (cleanCuil.length === 11) {
-      return `${cleanCuil.substring(0, 2)}-${cleanCuil.substring(2, 10)}-${cleanCuil.substring(10)}`;
+    const cleanDni = dni.replace(/\D/g, "");
+    if (cleanDni.length === 8) {
+      return `${cleanDni.substring(0, 2)}.${cleanDni.substring(2, 5)}.${cleanDni.substring(5, 8)}`;
     }
     return dni;
   };
@@ -56,14 +51,14 @@ const SendVoucherEmail = ({ student, cuota, onSendingStart, onSendingEnd, onStud
         student: {
           name: student.name || 'N/A',
           lastName: student.lastName || '',
-          dni: formatCuil(student.dni),
+          dni: formatDni(student.dni),
         },
         cuota: {
           date: cuota.date
             ? new Date(cuota.date).toLocaleString('es-ES', { month: 'long', year: 'numeric', timeZone: 'America/Argentina/Tucuman' }).replace(/^\w/, (c) => c.toUpperCase())
             : 'N/A',
-          amount: cuota.amount
-            ? new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 }).format(cuota.amount)
+          amount: cuota.amount !== undefined && cuota.amount !== null
+            ? Number(cuota.amount)
             : 'N/A',
           paymentmethod: cuota.paymentmethod || 'N/A',
           paymentdate: cuota.paymentdate,
@@ -84,9 +79,9 @@ const SendVoucherEmail = ({ student, cuota, onSendingStart, onSendingEnd, onStud
   return (
     <>
       <Button
-        className={`send-voucher ${cuota.state !== "Pagado" ? "disabled" : ""}`}
+        className={`action-btn-student ${cuota.state !== "Pagado" ? "disabled" : ""}`}
         onClick={handleSendVoucher}
-        disabled={loading || !isDataReady || cuota.state !== "Pagado"}
+        disabled={loading || disabled || !isDataReady || cuota.state !== "Pagado"}
         title={cuota.state === "Pagado" ? "Enviar comprobante" : "Cuota no pagada"}
       >
         {!loading && <FaFileInvoice className={cuota.state !== "Pagado" ? "disabled-icon" : ""} />}

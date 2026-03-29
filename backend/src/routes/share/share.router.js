@@ -17,23 +17,39 @@ import { protect, admin } from '../../middlewares/login/protect.js';
 
 const router = express.Router();
 
-router.post('/create', [
+router.post('/create', protect, admin, [
     body('student').isMongoId().withMessage('Valid student ID is required'),
     body('date').isDate().withMessage('Valid date is required'),
-    body('amount').isNumeric().withMessage('Valid amount is required')
-], protect, admin, createShare);
-router.put('/update/:id', [param('id').isMongoId()], protect, admin, updateShare);
+    body('amount').isFloat({ gt: 0 }).withMessage('Valid amount is required'),
+    body('paymentmethod').optional().isIn(['Efectivo', 'Transferencia']).withMessage('Método de pago inválido'),
+    body('paymentdate').optional().isDate().withMessage('Valid payment date is required')
+], createShare);
+
+router.put('/update/:id', protect, admin, [
+    param('id').isMongoId(),
+    body('amount').optional().isFloat({ gt: 0 }).toFloat().withMessage('Valid amount is required'),
+    body('paymentmethod').optional().isIn(['Efectivo', 'Transferencia']).withMessage('Método de pago inválido'),
+    body('paymentdate').optional().isISO8601().withMessage('Valid payment date is required')
+], updateShare);
+
 router.delete('/delete/:id', [param('id').isMongoId()], protect, admin, deleteShare);
+
 router.get('/date/:date', [param('date').isDate()], protect, admin, getSharesByDate);
-router.get('/date-range', [
+
+router.get('/date-range', protect, admin, [
     query('startDate').isDate().withMessage('Valid start date is required'),
     query('endDate').isDate().withMessage('Valid end date is required')
-], protect, admin, getSharesByDateRange);
+], getSharesByDateRange);
+
 router.get('/students-status', protect, admin, getStudentsWithShareStatus);
+
 router.put('/update-pending', protect, admin, updatePendingShares);
-router.get('/status-count', protect, admin, getSharesStatusCount); // Ruta estática antes de /:id
-router.get('/:id', [param('id').isMongoId().withMessage('Valid MongoDB ID is required')], protect, admin, getShareById);
+
+router.get('/status-count', protect, admin, getSharesStatusCount);
 router.get('/student/:studentId', [param('studentId').isMongoId()], protect, admin, getSharesByStudent);
+router.get('/:id', [param('id').isMongoId().withMessage('Valid MongoDB ID is required')], protect, admin, getShareById);
+
+
 router.get('/', protect, admin, getAllShares);
 
 export default router;

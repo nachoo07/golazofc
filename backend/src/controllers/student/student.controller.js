@@ -3,255 +3,114 @@ import Student from '../../models/student/student.model.js';
 import Share from '../../models/share/share.model.js';
 import Attendance from '../../models/attendance/attendance.model.js';
 import { Payment } from '../../models/payment/payment.model.js';
-import mongoose from 'mongoose';
-import multer from 'multer';
-import cloudinary from 'cloudinary';
 import sanitize from 'mongo-sanitize';
 import pino from 'pino';
-import xlsx from 'xlsx';
+import { validationResult } from 'express-validator';
 import pLimit from 'p-limit';
-import { parse, isValid, format } from 'date-fns';
-import axios from 'axios';
-import { Parser } from 'json2csv';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { sendBadRequest, sendInternalServerError, sendNotFound } from '../_shared/controller.utils.js';
+import {
+  uploadToCloudinary,
+  downloadImage,
+  extractPublicId,
+  deleteFromCloudinary,
+  getCloudinarySignature
+} from '../../utils/cloudinary/cloudinary.js';
+import { validateStudentData, normalizeDate, createUTCDate } from '../../validators/student/student.validator.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const logDir = path.join(__dirname, '../../logs');
-if (!fs.existsSync(logDir)) {
-  fs.mkdirSync(logDir, { recursive: true });
-}
+const logger = pino({ level: 'info' });
 
-const logger = pino({
-  level: 'info',
-  transport: {
-    target: 'pino/file',
-    options: { destination: path.join(logDir, 'import.log') },
-  },
-});
-
-const cloudinaryV2 = cloudinary.v2;
-
-cloudinaryV2.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
-const upload = multer({ storage: multer.memoryStorage() });
-
-const normalizeDate = (dateInput) => {
-  if (!dateInput) {
-    logger.warn('Fecha de nacimiento vacía');
-    return '';
+const handleValidationErrors = (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return sendBadRequest(res, 'Datos inválidos', { errors: errors.array() });
   }
-  const dateStr = String(dateInput).trim();
-  let parsedDate;
-  const formats = [
-    'dd/MM/yyyy', 'd/MM/yyyy', 'dd/M/yyyy', 'd/M/yyyy',
-    'dd-MM-yyyy', 'd-MM-yyyy', 'dd-M-yyyy', 'd-M-yyyy',
-    'yyyy-MM-dd', 'dd/MM/yy', 'd/MM/yy', 'dd/M/yy', 'd/M/yy',
-    'MM/dd/yyyy', 'M/d/yyyy', 'MM/d/yyyy', 'M/dd/yyyy', 'MM/dd/yy', 'M/d/yy',
-  ];
-  for (const fmt of formats) {
-    parsedDate = parse(dateStr, fmt, new Date());
-    if (isValid(parsedDate)) {
-      const year = parsedDate.getFullYear();
-      const currentYear = new Date().getFullYear();
-      if (year >= 1900 && year <= currentYear + 1) {
-        logger.info(`Fecha parseada: ${dateStr} como ${fmt} -> ${format(parsedDate, 'yyyy-MM-dd')}`);
-        break;
-      }
-    }
-  }
-  if (!isValid(parsedDate)) {
-    logger.warn(`Fecha inválida: ${dateStr}`);
-    return '';
-  }
-  return format(parsedDate, 'yyyy-MM-dd');
-};
-const createUTCDate = (dateStr) => {
-  if (!dateStr) return null;
-  // Validar formato yyyy-MM-dd
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-    logger.warn(`Formato de fecha inválido: ${dateStr}`);
-    return null;
-  }
-  // Crear fecha en UTC directamente desde yyyy-MM-dd
-  const [year, month, day] = dateStr.split('-').map(Number);
-  const utcDate = new Date(Date.UTC(year, month - 1, day));
-  if (!isValid(utcDate)) {
-    logger.warn(`Fecha UTC inválida: ${dateStr}`);
-    return null;
-  }
-  return utcDate;
-};
-
-const capitalizeWords = (str) => {
-  if (!str) return '';
-  return str
-    .trim()
-    .split(/\s+/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-};
-
-const downloadImage = async (url) => {
-  try {
-    if (url.includes('drive.google.com')) {
-      const fileId = url.match(/[-\w]{25,}/);
-      if (!fileId) throw new Error('URL de Google Drive inválida');
-      url = `https://drive.google.com/uc?export=download&id=${fileId[0]}`;
-    }
-    const response = await axios.get(url, {
-      responseType: 'arraybuffer',
-      timeout: 5000,
-    });
-    const mimeType = response.headers['content-type'];
-    if (!['image/jpeg', 'image/png'].includes(mimeType)) {
-      throw new Error('Formato de imagen no válido');
-    }
-    return { buffer: Buffer.from(response.data), mimetype: mimeType };
-  } catch (error) {
-    logger.error(`Error al descargar imagen: ${error.message}`);
-    throw error;
-  }
-};
-
-const uploadToCloudinary = async (file, folder, publicId) => {
-  try {
-    const result = await cloudinaryV2.uploader.upload(
-      `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
-      { folder, public_id: publicId, resource_type: 'image', overwrite: true }
-    );
-    return result.secure_url;
-  } catch (error) {
-    logger.error(`Error al subir imagen a Cloudinary: ${error.message}`);
-    throw new Error(`Error al subir imagen: ${error.message}`);
-  }
-};
-
-const extractPublicId = (url) => {
-  try {
-    if (!url || typeof url !== 'string') return '';
-    const parts = url.split('/');
-    const fileName = parts[parts.length - 1];
-    const publicId = `students/${fileName.split('.')[0]}`; // Ejemplo: 'students/student_12345678'
-    return publicId;
-  } catch (error) {
-    logger.error(`Error al extraer el ID público de la URL: ${error.message}`);
-    return '';
-  }
+  return null;
 };
 
 export const getAllStudents = async (req, res) => {
+  const validationError = handleValidationErrors(req, res);
+  if (validationError) return validationError;
+
   try {
-    const students = await Student.find().lean();
-    res.status(200).json(students.length ? students : { message: "No hay estudiantes disponibles" });
+    const { state } = sanitize(req.query);
+    const filters = {};
+    if (state) {
+      filters.state = state;
+    }
+
+    const students = await Student.find(filters).sort({ lastName: 1, name: 1 }).lean();
+    res.status(200).json(students);
   } catch (error) {
     logger.error({ error: error.message }, 'Error al obtener estudiantes');
-    res.status(500).json({ message: 'Error al obtener estudiantes' });
+    return sendInternalServerError(res, 'Error al obtener estudiantes');
+  }
+};
+
+export const getStudentById = async (req, res) => {
+  const validationError = handleValidationErrors(req, res);
+  if (validationError) return validationError;
+
+  const { id } = sanitize(req.params);
+
+  try {
+    const student = await Student.findById(id).lean();
+    if (!student) return sendNotFound(res, 'Estudiante no encontrado');
+    res.status(200).json(student);
+  } catch (error) {
+    return sendInternalServerError(res, 'Error al obtener estudiante');
   }
 };
 
 export const createStudent = async (req, res) => {
+  const validationError = handleValidationErrors(req, res);
+  if (validationError) return validationError;
+
   try {
-    const {
-      name, lastName, dni, birthDate, address, guardianName, guardianPhone,
-      category, mail, state, hasSiblingDiscount, profileImage, sure, league
-    } = sanitize(req.body);
+    const body = sanitize(req.body);
 
-    // Validar campos obligatorios
-    const missingFields = [];
-    if (!name) missingFields.push('Nombre');
-    if (!lastName) missingFields.push('Apellido');
-    if (!dni) missingFields.push('DNI');
-    if (!birthDate) missingFields.push('Fecha de Nacimiento');
-    if (!address) missingFields.push('Dirección');
-    if (!category) missingFields.push('Categoría');
-    if (missingFields.length > 0) {
-      logger.warn(`Faltan campos obligatorios: ${missingFields.join(', ')}`);
-      return res.status(400).json({ error: `Faltan datos obligatorios: ${missingFields.join(', ')}` });
+    const dataError = validateStudentData(body);
+    if (dataError) return sendBadRequest(res, dataError, { error: dataError });
+
+    const normalizedBirthDate = normalizeDate(body.birthDate);
+    const utcBirthDate = createUTCDate(normalizedBirthDate);
+    if (!utcBirthDate) {
+      return sendBadRequest(res, 'Fecha de nacimiento inválida');
     }
 
-    // Validar formato de DNI
-    if (!/^\d{7,9}$/.test(dni)) {
-      logger.warn(`DNI inválido: ${dni}`);
-      return res.status(400).json({ error: 'El DNI debe contener entre 7 y 9 dígitos' });
-    }
-
-    // Validar si el DNI ya existe
-    const existingStudent = await Student.findOne({ dni });
+    const existingStudent = await Student.findOne({ dni: body.dni });
     if (existingStudent) {
-      logger.warn(`Intento de crear estudiante con DNI duplicado: ${dni}`);
-      return res.status(400).json({ error: 'El DNI ya está registrado' });
+      return sendBadRequest(res, 'El DNI ya está registrado', { error: 'El DNI ya está registrado' });
     }
 
-    // Validar formato de fecha
-    const normalizedDate = normalizeDate(birthDate);
-    if (!normalizedDate) {
-      logger.warn(`Fecha de nacimiento inválida: ${birthDate}`);
-      return res.status(400).json({ error: 'Formato de fecha de nacimiento inválido' });
-    }
+    let finalProfileImage = body.profileImage || 'https://i.pinimg.com/736x/24/f2/25/24f22516ec47facdc2dc114f8c3de7db.jpg';
 
-    // Validar correo si está presente
-    if (mail && !/\S+@\S+\.\S+/.test(mail)) {
-      logger.warn(`Correo inválido: ${mail}`);
-      return res.status(400).json({ error: 'Formato de correo electrónico no válido' });
-    }
-
-    // Validar teléfono del tutor si está presente
-    if (guardianPhone && !/^\d{10,15}$/.test(guardianPhone)) {
-      logger.warn(`Teléfono del tutor inválido: ${guardianPhone}`);
-      return res.status(400).json({ error: 'El número de teléfono del tutor debe tener entre 10 y 15 dígitos' });
-    }
-
-    let finalProfileImage = profileImage || 'https://i.pinimg.com/736x/24/f2/25/24f22516ec47facdc2dc114f8c3de7db.jpg';
     if (req.file) {
       try {
         finalProfileImage = await uploadToCloudinary(
           { buffer: req.file.buffer, mimetype: req.file.mimetype },
           'students',
-          `student_${dni}`
+          `student_${body.dni}`
         );
-        logger.info(`Imagen subida a Cloudinary para estudiante con DNI ${dni}: ${finalProfileImage}`);
-      } catch (error) {
-        logger.error(`Error al subir imagen para estudiante con DNI ${dni}: ${error.message}`);
-        return res.status(400).json({ error: `Error al procesar imagen: ${error.message}` });
-      }
-    } else if (profileImage) {
+      } catch (e) { return sendBadRequest(res, e.message, { error: e.message }); }
+    } else if (body.profileImage && !body.profileImage.includes('pinimg')) {
+      // Intento de descarga si es URL externa
       try {
-        new URL(profileImage);
-        const { buffer, mimetype } = await downloadImage(profileImage);
+        const { buffer, mimetype } = await downloadImage(body.profileImage);
         finalProfileImage = await uploadToCloudinary(
           { buffer, mimetype },
           'students',
-          `student_${dni}`
+          `student_${body.dni}`
         );
-        logger.info(`Imagen subida a Cloudinary para estudiante con DNI ${dni}: ${finalProfileImage}`);
-      } catch (error) {
-        logger.error(`Error al procesar imagen para estudiante con DNI ${dni}: ${error.message}`);
-        return res.status(400).json({ error: `Error al procesar imagen: ${error.message}` });
-      }
+
+      } catch (e) { logger.warn('Usando URL original por fallo en descarga'); }
     }
 
     const newStudent = new Student({
-      name,
-      lastName,
-      dni,
-      birthDate: createUTCDate(normalizedDate),
-      address,
-      guardianName,
-      guardianPhone,
-      category,
-      mail,
-      state: state || 'Activo',
+      ...body,
+      birthDate: utcBirthDate,
+      state: body.state || 'Activo',
       profileImage: finalProfileImage,
-      hasSiblingDiscount,
-      sure,
-      league,
+      league: body.league || 'Sin especificar',
     });
 
     const savedStudent = await newStudent.save();
@@ -259,210 +118,97 @@ export const createStudent = async (req, res) => {
     logger.info({ studentId: savedStudent._id }, 'Estudiante creado con éxito');
     res.status(201).json({ message: 'Estudiante creado exitosamente', student: savedStudent });
   } catch (error) {
-    // Manejo de errores específicos
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
-      logger.warn(`Errores de validación: ${errors.join(', ')}`);
-      return res.status(400).json({ error: `Errores de validación: ${errors.join(', ')}` });
-    }
-    if (error.code === 11000 && error.keyPattern.dni) {
-      logger.warn(`Intento de crear estudiante con DNI duplicado: ${req.body.dni}`);
-      return res.status(400).json({ error: 'El DNI ya está registrado' });
-    }
-    // Otros errores inesperados
     logger.error({ error: error.message, stack: error.stack }, 'Error al crear estudiante');
-    res.status(500).json({ error: `Error interno al crear estudiante: ${error.message}` });
+    return sendInternalServerError(res, 'Error al crear estudiante');
   }
 
 };
 
 export const deleteStudent = async (req, res) => {
+  const validationError = handleValidationErrors(req, res);
+  if (validationError) return validationError;
+
   const { id } = sanitize(req.params);
   try {
     const student = await Student.findById(id);
-    if (!student) {
-      return res.status(404).json({ message: 'Estudiante no encontrado' });
-    }
-    if (student.profileImage && student.profileImage !== 'https://i.pinimg.com/736x/24/f2/25/24f22516ec47facdc2dc114f8c3de7db.jpg') {
-      try {
-        const publicId = extractPublicId(student.profileImage);
-        if (publicId) {
-          await cloudinaryV2.uploader.destroy(publicId);
-          logger.info(`Imagen eliminada de Cloudinary para estudiante con ID ${id}: ${publicId}`);
-        }
-      } catch (error) {
-        logger.error(`Error al eliminar imagen de Cloudinary para estudiante con ID ${id}: ${error.message}`);
-      }
+    if (!student) return sendNotFound(res, 'Estudiante no encontrado');
+
+    if (student.profileImage && !student.profileImage.includes('pinimg.com')) {
+      const publicId = extractPublicId(student.profileImage);
+      await deleteFromCloudinary(publicId);
     }
 
     await Share.deleteMany({ student: id });
-    await Attendance.updateMany(
-      { 'attendance.studentId': id },
-      { $pull: { attendance: { studentId: id } } }
-    );
-    await Attendance.deleteMany({ attendance: [] });
-    // Eliminar pagos asociados
     await Payment.deleteMany({ studentId: id });
+    await Attendance.updateMany({}, { $pull: { attendance: { idStudent: id } } });
+    await Attendance.deleteMany({ attendance: [] });
     await Student.findByIdAndDelete(id);
-    logger.info({ studentId: id }, 'Estudiante eliminado');
     res.status(200).json({ message: 'Estudiante eliminado exitosamente' });
   } catch (error) {
-    logger.error('Error al eliminar estudiante:', error);
-    res.status(500).json({ message: 'Error al eliminar estudiante', error: error.message });
+    return sendInternalServerError(res, 'Error al eliminar estudiante');
   }
 };
 
 export const updateStudent = async (req, res) => {
+  const validationError = handleValidationErrors(req, res);
+  if (validationError) return validationError;
+
   try {
     const { id } = sanitize(req.params);
-    const {
-      name, lastName, dni, birthDate, address, guardianName, guardianPhone,
-      category, mail, state, hasSiblingDiscount, profileImage, sure, league
-    } = sanitize(req.body);
+    const body = sanitize(req.body);
 
-    // Validar campos obligatorios
-    const missingFields = [];
-    if (!name) missingFields.push('Nombre');
-    if (!lastName) missingFields.push('Apellido');
-    if (!dni) missingFields.push('DNI');
-    if (!address) missingFields.push('Dirección');
-    if (!category) missingFields.push('Categoría');
-    if (missingFields.length > 0) {
-      logger.warn(`Faltan campos obligatorios: ${missingFields.join(', ')}`);
-      return res.status(400).json({ error: `Faltan datos obligatorios: ${missingFields.join(', ')}` });
+    const validationDataError = validateStudentData(body);
+    if (validationDataError) {
+      return sendBadRequest(res, validationDataError, { error: validationDataError });
     }
 
-    // Validar formato de DNI
-    if (!/^\d{7,9}$/.test(dni)) {
-      logger.warn(`DNI inválido: ${dni}`);
-      return res.status(400).json({ error: 'El DNI debe contener entre 7 y 9 dígitos' });
+    const normalizedBirthDate = normalizeDate(body.birthDate);
+    const utcBirthDate = createUTCDate(normalizedBirthDate);
+    if (!utcBirthDate) {
+      return sendBadRequest(res, 'Fecha de nacimiento inválida', { error: 'Fecha de nacimiento inválida' });
     }
 
-    // Verificar si el estudiante existe
     const existingStudent = await Student.findById(id);
-    if (!existingStudent) {
-      logger.warn(`Estudiante no encontrado: ${id}`);
-      return res.status(404).json({ error: 'Estudiante no encontrado' });
-    }
+    if (!existingStudent) return sendNotFound(res, 'Estudiante no encontrado', { error: 'Estudiante no encontrado' });
 
-    // Verificar si el DNI ya existe en otro estudiante
-    const duplicateStudent = await Student.findOne({ dni, _id: { $ne: id } });
-    if (duplicateStudent) {
-      logger.warn(`Intento de actualizar estudiante con DNI duplicado: ${dni}`);
-      return res.status(400).json({ error: 'El DNI ya está registrado en otro estudiante' });
-    }
+    const duplicateStudent = await Student.findOne({ dni: body.dni, _id: { $ne: id } });
+    if (duplicateStudent) return sendBadRequest(res, 'El DNI ya está registrado en otro estudiante', { error: 'El DNI ya está registrado en otro estudiante' });
 
+    // 2. Manejo de Imagen
+    if (req.file || (body.profileImage && body.profileImage !== existingStudent.profileImage)) {
+      // Borrar anterior
+      if (existingStudent.profileImage && !existingStudent.profileImage.includes('pinimg.com')) {
+        const publicId = extractPublicId(existingStudent.profileImage);
+        await deleteFromCloudinary(publicId);
+      }
+      // Subir nueva
+      if (req.file) {
+        body.profileImage = await uploadToCloudinary({ buffer: req.file.buffer, mimetype: req.file.mimetype }, 'students', `student_${body.dni}`);
+      } else if (body.profileImage) {
+        try {
+          const { buffer, mimetype } = await downloadImage(body.profileImage);
+          body.profileImage = await uploadToCloudinary(
+            { buffer, mimetype },
+            'students',
+            `student_${body.dni}`
+          );
+        } catch (e) { logger.warn('Fallo subida URL, manteniendo referencia'); }
+      }
+    }
     // Inicializar updates al inicio
     const updates = {
-      name,
-      lastName,
-      dni,
-      address,
-      guardianName,
-      guardianPhone,
-      category,
-      mail,
-      state,
-      profileImage: existingStudent.profileImage || 'https://i.pinimg.com/736x/24/f2/25/24f22516ec47facdc2dc114f8c3de7db.jpg',
-      hasSiblingDiscount,
-      sure,
-      league,
+      ...body,
+      league: body.league || 'Sin especificar',
+      birthDate: utcBirthDate
     };
 
-    // Validar y actualizar birthDate si se proporciona
-    if (birthDate && birthDate !== format(existingStudent.birthDate, 'yyyy-MM-dd')) {
-      const normalizedDate = normalizeDate(birthDate);
-      if (!normalizedDate) {
-        logger.warn(`Fecha de nacimiento inválida: ${birthDate}`);
-        return res.status(400).json({ error: 'Formato de fecha de nacimiento inválido' });
-      }
-      updates.birthDate = createUTCDate(normalizedDate);
-    }
-
-    // Validar correo si está presente
-    if (mail && !/\S+@\S+\.\S+/.test(mail)) {
-      logger.warn(`Correo inválido: ${mail}`);
-      return res.status(400).json({ error: 'Formato de correo electrónico no válido' });
-    }
-
-    // Validar teléfono del tutor si está presente
-    if (guardianPhone && !/^\d{10,15}$/.test(guardianPhone)) {
-      logger.warn(`Teléfono del tutor inválido: ${guardianPhone}`);
-      return res.status(400).json({ error: 'El número de teléfono del tutor debe tener entre 10 y 15 dígitos' });
-    }
-
-    // Procesar imagen
-    if (req.file || (profileImage && profileImage !== existingStudent.profileImage)) {
-      try {
-        if (existingStudent.profileImage && existingStudent.profileImage !== 'https://i.pinimg.com/736x/24/f2/25/24f22516ec47facdc2dc114f8c3de7db.jpg') {
-          const publicId = extractPublicId(existingStudent.profileImage);
-          if (publicId) {
-            await cloudinaryV2.uploader.destroy(publicId);
-            logger.info(`Imagen antigua eliminada de Cloudinary para ID ${id}: ${publicId}`);
-          }
-        }
-
-        if (req.file) {
-          updates.profileImage = await uploadToCloudinary(
-            { buffer: req.file.buffer, mimetype: req.file.mimetype },
-            'students',
-            `student_${dni}`
-          );
-          logger.info(`Nueva imagen subida desde archivo para ID ${id}: ${updates.profileImage}`);
-        } else if (profileImage) {
-          try {
-            new URL(profileImage);
-            const { buffer, mimetype } = await downloadImage(profileImage);
-            updates.profileImage = await uploadToCloudinary(
-              { buffer, mimetype },
-              'students',
-              `student_${dni}`
-            );
-            logger.info(`Nueva imagen subida desde URL para ID ${id}: ${updates.profileImage}`);
-          } catch (error) {
-            logger.error(`Error al procesar imagen URL para DNI ${dni}: ${error.message}`);
-            return res.status(400).json({ error: `Error al procesar imagen: ${error.message}` });
-          }
-        }
-      } catch (error) {
-        logger.error(`Error al procesar imagen para ID ${id}: ${error.message}`);
-        return res.status(400).json({ error: `Error al procesar imagen: ${error.message}` });
-      }
-    }
-
     // Actualizar estudiante
-    const student = await Student.findByIdAndUpdate(id, { $set: updates }, { new: true }).lean();
-
-    logger.info({ studentId: id }, 'Estudiante actualizado con éxito');
+    const student = await Student.findByIdAndUpdate(id, { $set: updates }, { new: true, runValidators: true }).lean();
     res.status(200).json({ message: 'Estudiante actualizado exitosamente', student });
-  } catch (error) {
-    // Manejo de errores específicos
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
-      logger.warn(`Errores de validación: ${errors.join(', ')}`);
-      return res.status(400).json({ error: `Errores de validación: ${errors.join(', ')}` });
-    }
-    if (error.code === 11000 && error.keyPattern.dni) {
-      logger.warn(`Intento de actualizar estudiante con DNI duplicado: ${req.body.dni}`);
-      return res.status(400).json({ error: 'El DNI ya está registrado en otro estudiante' });
-    }
-    logger.error({ error: error.message, stack: error.stack }, 'Error al actualizar estudiante');
-    res.status(500).json({ error: `Error interno al actualizar estudiante: ${error.message}` });
-  }
-};
 
-export const getStudentById = async (req, res) => {
-  const { id } = sanitize(req.params);
-
-  try {
-    const student = await Student.findById(id).lean();
-    if (!student) {
-      return res.status(404).json({ message: 'Estudiante no encontrado' });
-    }
-    res.status(200).json(student);
   } catch (error) {
-    logger.error({ error: error.message }, 'Error al obtener estudiante');
-    res.status(500).json({ message: 'Error al obtener estudiante' });
+    logger.error({ error: error.message }, 'Error al actualizar estudiante');
+    return sendInternalServerError(res, 'Error al actualizar estudiante');
   }
 };
 
@@ -471,17 +217,7 @@ export const generateCloudinarySignature = async (req, res) => {
     if (!process.env.CLOUDINARY_API_SECRET) {
       throw new Error('Falta la configuración de Cloudinary');
     }
-    const timestamp = Math.round(new Date().getTime() / 1000);
-    const signature = cloudinary.utils.api_sign_request(
-      { timestamp, folder: 'students' },
-      process.env.CLOUDINARY_API_SECRET
-    );
-    res.status(200).json({
-      signature,
-      timestamp,
-      cloudName: process.env.CLOUDINARY_CLOUD_NAME,
-      apiKey: process.env.CLOUDINARY_API_KEY,
-    });
+    res.status(200).json(getCloudinarySignature());
   } catch (error) {
     logger.error({ error: error.message, stack: error.stack }, 'Error al generar la firma de Cloudinary');
     res.status(500).json({ message: 'Error al generar la firma de Cloudinary', error: error.message });

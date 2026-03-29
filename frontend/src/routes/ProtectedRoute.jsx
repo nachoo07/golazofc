@@ -3,11 +3,12 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { LoginContext } from '../context/login/LoginContext';
 
 const ProtectedRoute = ({ element, role }) => {
-  const { auth, loading } = useContext(LoginContext);
+  const { auth, loading, authReady } = useContext(LoginContext);
   const location = useLocation();
+  const redirectByRole = auth === 'admin' ? '/' : '/homeuser';
 
-  if (loading) {
-    return element;
+  if (loading || !authReady) {
+    return null;
   }
 
   if (!auth) {
@@ -18,7 +19,7 @@ const ProtectedRoute = ({ element, role }) => {
   }
 
   if (role && auth !== role) {
-    return <Navigate to="/homeuser" replace />;
+    return <Navigate to={redirectByRole} replace />;
   }
 
   return element;

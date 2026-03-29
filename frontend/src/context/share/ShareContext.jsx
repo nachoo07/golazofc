@@ -1,176 +1,225 @@
 import { useEffect, useState, createContext, useContext, useCallback, useRef } from "react";
-import axios from "axios";
+import client from "../../api/axios";
 import { LoginContext } from "../login/LoginContext";
 
 export const SharesContext = createContext();
 
+const EMPTY_STATUS_COUNT = {
+  pendientes: 0,
+  vencidas: 0,
+  pagadas: 0,
+};
+
 const SharesProvider = ({ children }) => {
   const [cuotas, setCuotas] = useState([]);
-  const [cuotasStatusCount, setCuotasStatusCount] = useState({
-    pendientes: 0,
-    vencidas: 0,
-    pagadas: 0,
-  });
-  const [loading, setLoading] = useState(true); // Inicialmente true para evitar parpadeo
+  const [cuotasStatusCount, setCuotasStatusCount] = useState(EMPTY_STATUS_COUNT);
+  const [pendingRequests, setPendingRequests] = useState(0);
   const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false);
-  const { auth, waitForAuth } = useContext(LoginContext);
+  const { auth, authReady } = useContext(LoginContext);
   const hasFetched = useRef(false);
+  const loading = pendingRequests > 0;
+
+  const startRequest = useCallback(() => {
+    setPendingRequests((prev) => prev + 1);
+  }, []);
+
+  const endRequest = useCallback(() => {
+    setPendingRequests((prev) => Math.max(0, prev - 1));
+  }, []);
+
+  const withRequest = useCallback(async (requestFn) => {
+    startRequest();
+    try {
+      return await requestFn();
+    } finally {
+      endRequest();
+    }
+  }, [startRequest, endRequest]);
 
   const obtenerCuotas = useCallback(async () => {
-    if (auth !== "admin") return;
+    if (!authReady || auth !== "admin") return [];
     try {
-      setLoading(true);
-      const response = await axios.get("/api/shares", {
-        withCredentials: true,
-        params: { all: true }
-      });
+      const response = await withRequest(() => client.get("/shares"));
       const data = Array.isArray(response.data) ? response.data : [];
       setCuotas(data);
+      return data;
     } catch (error) {
-      console.error("Error obteniendo cuotas:", error);
-    } finally {
-      setLoading(false);
+      console.error("Error obteniendo cuotas:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      setCuotas([]);
+      throw error;
     }
-  }, [auth]);
+  }, [auth, authReady, withRequest]);
 
   const obtenerCuotasStatusCount = useCallback(async () => {
-    if (auth !== "admin") return;
+    if (!authReady || auth !== "admin") {
+      setCuotasStatusCount(EMPTY_STATUS_COUNT);
+      return EMPTY_STATUS_COUNT;
+    }
     try {
-      setLoading(true);
-      const response = await axios.get("/api/shares/status-count", {
-        withCredentials: true,
-      });
-      setCuotasStatusCount({
+      const response = await withRequest(() => client.get("/shares/status-count"));
+      const nextCount = {
         pendientes: response.data.pendientes || 0,
         vencidas: response.data.vencidas || 0,
         pagadas: response.data.pagadas || 0,
-      });
+      };
+      setCuotasStatusCount(nextCount);
+      return nextCount;
     } catch (error) {
-      console.error("Error obteniendo conteos de cuotas:", error, error.response?.data);
-      setCuotasStatusCount({ pendientes: 0, vencidas: 0, pagadas: 0 });
-    } finally {
-      setLoading(false);
+      console.error("Error obteniendo conteos de cuotas:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      setCuotasStatusCount(EMPTY_STATUS_COUNT);
+      throw error;
     }
-  }, [auth]);
+  }, [auth, authReady, withRequest]);
+
+  const refreshStatusCountSafely = useCallback(async () => {
+    try {
+      await obtenerCuotasStatusCount();
+    } catch (error) {
+      console.error('No se pudo refrescar el conteo de cuotas:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+    }
+  }, [obtenerCuotasStatusCount]);
+
 
   const obtenerCuotasPorEstudiante = useCallback(async (studentId) => {
-    if (!studentId) return;
+    if (!studentId || !authReady || auth !== "admin") return [];
     try {
-      setLoading(true);
-      const response = await axios.get(`/api/shares/student/${studentId}`, {
-        withCredentials: true,
-      });
+      const response = await withRequest(() => client.get(`/shares/student/${studentId}`));
       const data = Array.isArray(response.data) ? response.data : [];
       setCuotas((prev) => [...prev.filter((cuota) => cuota.student?._id !== studentId), ...data]);
+      return data;
     } catch (error) {
-      console.error("Error obteniendo cuotas por estudiante:", error);
-    } finally {
-      setLoading(false);
+      console.error("Error obteniendo cuotas por estudiante:", {
+        studentId,
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      throw error;
     }
-  }, []);
+  }, [auth, authReady, withRequest]);
 
   const addCuota = useCallback(async (cuota) => {
-    if (auth !== "admin") return;
+    if (!authReady || auth !== "admin") return;
     try {
-      setLoading(true);
-      const response = await axios.post("/api/shares/create", cuota, {
-        withCredentials: true,
-      });
+      const response = await withRequest(() => client.post("/shares/create", cuota));
       const newCuota = response.data.share;
       setCuotas((prev) => [...(Array.isArray(prev) ? prev : []), newCuota]);
-      await obtenerCuotasStatusCount();
+      await refreshStatusCountSafely();
+      return newCuota;
     } catch (error) {
-      console.error("Error al crear la cuota:", error);
-      throw new Error("Ha ocurrido un error al crear la cuota");
-    } finally {
-      setLoading(false);
+      console.error("Error al crear la cuota:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      throw error;
     }
-  }, [auth, obtenerCuotasStatusCount]);
+  }, [auth, authReady, withRequest, refreshStatusCountSafely]);
 
   const deleteCuota = useCallback(async (id) => {
-    if (auth !== "admin") return;
+    if (!authReady || auth !== "admin") return;
     try {
-      setLoading(true);
-      await axios.delete(`/api/shares/delete/${id}`, {
-        withCredentials: true,
-      });
+      await withRequest(() => client.delete(`/shares/delete/${id}`));
       setCuotas((prev) => prev.filter((cuota) => cuota._id !== id));
-      await obtenerCuotasStatusCount();
+      await refreshStatusCountSafely();
     } catch (error) {
-      console.error("Error al eliminar cuota:", error);
-      throw new Error("Ha ocurrido un error al eliminar la cuota");
-    } finally {
-      setLoading(false);
+      console.error("Error al eliminar cuota:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      throw error;
     }
-  }, [auth, obtenerCuotasStatusCount]);
+  }, [auth, authReady, refreshStatusCountSafely, withRequest]);
 
   const updateCuota = useCallback(async (cuota) => {
-    if (auth !== "admin") return;
+    if (!authReady || auth !== "admin") return;
     try {
-      setLoading(true);
-      const response = await axios.put(`/api/shares/update/${cuota._id}`, cuota, {
-        withCredentials: true,
-      });
+      const response = await withRequest(() => client.put(`/shares/update/${cuota._id}`, cuota));
       const updatedCuota = response.data.share;
       setCuotas((prev) =>
         prev.map((c) => (c._id === updatedCuota._id ? updatedCuota : c))
       );
-      await obtenerCuotasStatusCount();
+      await refreshStatusCountSafely();
+      return updatedCuota;
     } catch (error) {
-      console.error("Error al actualizar cuota:", error);
-      throw new Error("Ha ocurrido un error al actualizar la cuota");
-    } finally {
-      setLoading(false);
+      console.error("Error al actualizar cuota:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      throw error;
     }
-  }, [auth, obtenerCuotasStatusCount]);
+  }, [auth, authReady, refreshStatusCountSafely, withRequest]);
 
   const obtenerCuotasPorFecha = useCallback(async (fecha) => {
+    if (!authReady || auth !== "admin") return [];
     try {
-      setLoading(true);
       setCuotas([]);
-      const response = await axios.get(`/api/shares/date/${fecha}`, {
-        withCredentials: true,
-      });
+      const response = await withRequest(() => client.get(`/shares/date/${fecha}`));
       const data = Array.isArray(response.data) ? response.data : [];
       setCuotas(data);
       return data;
     } catch (error) {
-      console.error('Error obteniendo cuotas por fecha:', error);
+      console.error('Error obteniendo cuotas por fecha:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
       throw new Error('No se pudieron obtener las cuotas por fecha.');
-    } finally {
-      setLoading(false);
     }
-  }, []);
+  }, [auth, authReady, withRequest]);
 
   const obtenerCuotasPorFechaRange = useCallback(async (startDate, endDate) => {
+    if (!authReady || auth !== "admin") return [];
     try {
-      setLoading(true);
       setCuotas([]);
-      const response = await axios.get(`/api/shares/date-range?startDate=${startDate}&endDate=${endDate}`, {
-        withCredentials: true,
-      });
+      const response = await withRequest(() => client.get('/shares/date-range', {
+        params: { startDate, endDate },
+      }));
       const data = Array.isArray(response.data) ? response.data : [];
       setCuotas(data);
       return data;
     } catch (error) {
-      console.error('Error obteniendo cuotas por rango de fechas:', error);
+      console.error('Error obteniendo cuotas por rango de fechas:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
       throw new Error('No se pudieron obtener las cuotas por rango de fechas.');
-    } finally {
-      setLoading(false);
     }
-  }, []);
+  }, [auth, authReady, withRequest]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      await waitForAuth();
-      if (auth === "admin" && !hasFetched.current) {
-        hasFetched.current = true;
-        await Promise.all([obtenerCuotas(), obtenerCuotasStatusCount()]); // Ejecutar ambas al mismo tiempo
-        setIsInitialLoadComplete(true);
-      }
-    };
-    fetchData();
-  }, [auth, waitForAuth, obtenerCuotasStatusCount]);
+    if (!authReady) return;
+
+    if (auth !== "admin") {
+      hasFetched.current = false;
+      setIsInitialLoadComplete(false);
+      setCuotasStatusCount(EMPTY_STATUS_COUNT);
+      setCuotas([]);
+      return;
+    }
+
+    if (auth === "admin" && !hasFetched.current) {
+      hasFetched.current = true;
+      obtenerCuotasStatusCount()
+        .catch(() => { })
+        .finally(() => setIsInitialLoadComplete(true));
+    }
+  }, [auth, authReady, obtenerCuotasStatusCount]);
 
   return (
     <SharesContext.Provider

@@ -1,87 +1,21 @@
-.app-container {
-  display: flex;
-  flex: flex-column;
-  min-height: 100vh;
-  width: 100%;
-}
-
-.search-box {
-  position: relative;
-  max-width: 300px;
-  width: 100%;
-  display: flex;
-  align-items: center;
-}
-
-.search-symbol {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--text-light);
-  font-size: 14px;
-}
-
-.search-field {
-  width: block;
-  padding: 10px 12px 12px 40px;
-  border-radius: 12px;
-  border: none;
-  background-color: var(--background-alt);
-  color: var(--text-color);
-  font-size: 14px;
-  transition: all 0.2s ease;
-}
-
-.search-field:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(244, 144, 140, 0.2);
-}
-
-@keyframes dropdown-menu {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.dashboard-layout {
-  display: flex;
-  height: calc(100vh - var(--header-height));
-  transition: var(--transition);
-}
-
-.main-content {
-  flex: 1;
-  padding: 25px;
-  overflow-y: auto;
-  background-color: var(--background-color);
-}
-
-.dashboard-welcome {
+.cuotas-filter {
   margin-bottom: 20px;
 }
 
-.welcome-text h1 {
-  font-size: 1.8rem;
-  font-weight: 600;
-  margin-bottom: 5px;
+.cuotas-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 10px 10px;
 }
 
-.mobile-search-section {
-  display: none;
-  margin: 10px 0;
-  width: 100%;
-}
-
-.mobile-search-container {
+.cuotas-search-container {
   position: relative;
   width: 100%;
+}
+
+.desktop-search-container {
+  max-width: 460px;
 }
 
 .mobile-search-icon {
@@ -93,48 +27,10 @@
   font-size: 0.9rem;
 }
 
-.mobile-search-input {
-  width: 100%;
-  padding: 12px 40px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
-  background-color: white;
-  color: var(--text-color);
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-}
-
-.mobile-search-input:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(244, 44, 140, 0.1);
-}
-
-.mobile-search-clear {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  color: var(--text-light);
-  font-size: 0.8rem;
-  cursor: pointer;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-}
-
-.mobile-search-clear:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-}
-
-.cuotas-filter {
-  margin-bottom: 20px;
+.mobile-search-clear:disabled,
+.mobile-search-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .filter-actions {
@@ -145,22 +41,23 @@
   margin: 0 10px;
 }
 
+.filter-count {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .cuotas-table-section {
   flex: 1;
   display: flex;
   flex-direction: column;
 }
 
-.table-wrapper {
-  flex: 1;
-  overflow-x: auto;
-  border-radius: var(--radius-md);
-  box-shadow: var(--card-shadow);
-  background: var(--card-bg);
-}
-
 .cuotas-table {
-  width: 100%;
+    width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
 }
 
@@ -170,14 +67,12 @@
   text-align: center !important;
   font-size: 18px;
   color: var(--text-color);
-
 }
 
 .cuotas-table th {
-  background: #e31fa8 !important;
+  background: var(--color-primary) !important;
   color: white !important;
   font-weight: 600;
-
 }
 
 .empty-table-message {
@@ -197,21 +92,8 @@
   background: var(--background-alt);
 }
 
-.action-buttons {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-}
-
-.no-data {
-  text-align: center;
-  color: var(--text-light);
-  padding: 20px;
-  font-size: 1rem;
-}
-
 .action-btn-share {
-  background: #e31fa8 !important;
+  background: var(--color-primary) !important;
   color: white;
   border: none;
   padding: 6px;
@@ -223,20 +105,24 @@
   justify-content: center;
 }
 
+@keyframes underline-grow {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+.action-buttons-share {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
 @media (max-width: 576px) {
-  .desktop-nav-header {
-    display: none;
-  }
-
-  .main-content {
-    padding: 15px;
-  }
-
   .cuotas-table th,
   .cuotas-table td {
-    font-size: 13px !important;
-    padding: 6px !important;
-    border: none !important;
+    font-size: 13px;
+    padding: 5px;
+    white-space: nowrap;
+    text-align: left;
   }
 
   .action-btn-share {
@@ -244,48 +130,34 @@
     font-size: 18px !important;
   }
 
-  .pagination-btn {
-    padding: 6px 10px;
-    font-size: 12px;
+  .checkbox-filters-share {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    justify-content: center;
   }
 
-  .checkbox-filters {
+  .filter-actions-share {
     display: flex;
-    flex-wrap: wrap !important;
-    width: 100% !important;
-  }
-
-  .filter-actions {
-    display: flex;
-    flex-wrap: wrap !important;
     margin-top: 10px !important;
-    width: 100% !important;
   }
 
   .checkbox-custom {
-    font-size: 12px !important;
-    padding-left: 25px !important;
-  }
-
-  .mobile-search-section {
-    display: block;
-  }
-
-  .dashboard-welcome {
-    margin-bottom: 10px;
+    font-size: 11px !important;
+    padding-left: 20px !important;
   }
 
   .cuotas-filter {
-    margin-top: 10px;
+    margin: 10px 0px;
+
   }
 
-  .welcome-text h1 {
-    font-size: 1.4rem;
+  .action-buttons-share {
+    padding: 4px !important;
   }
 
-  .search-box {
-    display: none;
+  .cuotas-header {
+    margin-top: 10px
   }
-
   
 }
