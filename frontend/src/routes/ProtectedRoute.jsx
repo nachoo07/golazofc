@@ -8,8 +8,8 @@ const ProtectedRoute = ({ element, role }) => {
   const redirectByRole = auth === 'admin' ? '/' : '/homeuser';
 
   if (loading || !authReady) {
-    return null;
-  }
+  return element;
+}
 
   if (!auth) {
     if (location.pathname !== '/login') {
